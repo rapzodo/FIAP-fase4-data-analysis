@@ -26,7 +26,7 @@ source .venv/bin/activate  # On macOS/Linux
 pip install -r requirements.txt
 
 # Create .env file
-cp .env.example .env
+cp .env .env
 ```
 
 ## 🔑 Configuration

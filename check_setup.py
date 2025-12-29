@@ -65,7 +65,7 @@ def check_environment():
             print("   ℹ️  Configured to use Groq")
     else:
         print("   ❌ .env file not found")
-        issues.append("Run 'cp .env.example .env' to create configuration file")
+        issues.append("Run 'cp .env .env' to create configuration file")
 
     # Check input files
     print("\n📍 Input Files:")
