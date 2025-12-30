@@ -1,4 +1,4 @@
-facial_recognition:
+facial_emotions_analyzer:
   role: "Facial recognition and emotions detection specialist"
   goal: "Analyze videos, identify and detect faces, face expressions and emotions with high accuracy"
   backstory: |

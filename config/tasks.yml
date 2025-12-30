@@ -1,0 +1,83 @@
+analyze_facial_recognition:
+  description: |
+    analyze the video at '{video_path}' for faces and emotions.
+    use facial_recognition_tool with sample_rate={frame_sample_rate}.
+    
+    Output:
+    1. Total frames analyzed
+    2. Faces detected with timeframe
+    3. Emotion distribution (happy, sad, angry, neutral, surprise, fear, disgust)
+    4. confidence scores
+    5. Anomalies detected (no face, low confidence, not a human)
+    
+    Format as structured data report with statistics
+  expected_output: "Facial recognition analysis with emotion data and statistics"
+  agent: facial_emotions_analyzer
+
+detect_activities:
+  description: |
+    Analyze the video at '{video_path}' for human activities, poses and gestures.
+    Use activity_detector_tool with sample_rate={frame_sample_rate}.
+    
+    Identify:
+    1. Total frames analyzed
+    2. Activities detected (playing, running, jumping, etc)
+    3. poses detected (standing, sitting, laying, crouching, etc)
+    4. hand gestures (raised, waiving)
+    5. Activity timelines with timestamps
+    6. Anomalies detected (no poses, no human)
+
+  expected_output: "Activity detection analysis with pose, gestures and timeline"
+  agent: activity_detector
+
+generate_summary:
+  description: |
+    Create a comprehensive summary report based on data analysis aggregated.
+    
+    include these sections:
+    
+    ##Executive summary
+    - Overview in 3-4 sentences
+    - key findings
+    
+    #Processing statistics
+    - frames analyzed
+    - success rates
+    - processing efficiency
+    
+    #Facial recognition results
+    - Detection rate
+    - Emotion distribution with percentages
+    - Confidence metrics
+    
+    #Activity detection results
+    - Activity breakdown with percentages
+    - Movements patterns
+    - Poses breakdown with percentages
+    - Hand gestures analysis
+    
+    #Anomaly Report
+    - Total anomalies
+    - Types and frequencies
+    - Impact assessment
+    
+    #key insights
+    - top 5 expressions
+    - top 5 activities (based on frequency)
+    - Patterns and correlations
+    - Notable observations
+  
+    Format in clean markdown with clear headings and bullet points
+  expected_output: "Comprehensive markdown summary report with all sections"
+  agent: summarizer
+  context:
+    - analyze_facial_recognition
+    - detect_activities
+
+translate_report:
+  description: |
+    Translate the summary report to {language}
+  expected_output: "A precise 1:1 translated report"
+  agent: translator
+  context:
+    - generate_summary
