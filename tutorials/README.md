@@ -4,38 +4,34 @@
 
 ## 🎯 Goal
 
-Build a 5-agent video analysis system by coding each component yourself with step-by-step guidance.
+Build a 3-agent video analysis system by coding each component yourself with step-by-step guidance. Focus on video processing with clean, testable code.
 
-## 📚 Modules (3-4 hours total)
+## 📚 Modules (2.5 hours total)
 
-### [Module 1: PDF Interpretator Agent](01-pdf-interpretator.md) - 30 min
-- Build PDF parser tool
-- Create agent that extracts tech requirements
-- **Test**: Parse a PDF and extract structured data
+### [Module 1: YAML Configuration Setup](01-yaml-setup.md) - 20 min
+- YAML-based agent and task configuration
+- Factory pattern for creating agents/tasks
+- **Test**: unittest for config validation
 
 ### [Module 2: Facial Recognition Agent](02-facial-recognition.md) - 45 min  
 - Video frame processing with OpenCV
 - Face detection + emotion analysis with DeepFace
-- **Test**: Detect faces and emotions in video
+- **Test**: unittest for tool functionality
 
 ### [Module 3: Activity Detector Agent](03-activity-detector.md) - 45 min
 - MediaPipe pose & hand tracking
 - Activity classification logic
-- **Test**: Identify standing/sitting/moving from video
+- **Test**: unittest for pose detection
 
 ### [Module 4: Summarizer Agent](04-summarizer.md) - 30 min
 - Aggregate multi-agent outputs
 - Generate statistical reports
-- **Test**: Create summary from mock data
+- **Test**: unittest with mock data
 
-### [Module 5: Demo Script Agent](05-demo-script.md) - 20 min
-- Context-aware script generation
-- **Test**: Generate demo script
-
-### [Module 6: Orchestration](06-orchestration.md) - 30 min
+### [Module 5: Orchestration](05-orchestration.md) - 30 min
 - Wire all agents together
 - Task flow & error handling
-- **Test**: Run full pipeline
+- **Test**: Integration tests
 
 ## 📝 Tutorial Format
 

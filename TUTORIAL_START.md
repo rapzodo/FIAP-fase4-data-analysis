@@ -1,8 +1,8 @@
-# 🚀 Quick Start: Hands-On Tutorial
+# 🚀 Quick Start: Hands-On Tutorial (YAML-Based)
 
-## ✅ Complete! Tutorial System Ready
+## ✅ Updated! Clean YAML Configuration Approach
 
-I've created **6 comprehensive tutorial modules** that will guide you to code the entire multi-agent video analysis system yourself.
+I've created **5 streamlined tutorial modules** using **YAML configuration** for agents and tasks. This is a cleaner, more maintainable approach.
 
 ---
 
@@ -11,12 +11,19 @@ I've created **6 comprehensive tutorial modules** that will guide you to code th
 ### Tutorial Files (in `tutorials/` directory)
 
 1. **README.md** - Overview and navigation
-2. **01-pdf-interpretator.md** - PDF parsing agent (30 min)
-3. **02-facial-recognition.md** - Face & emotion detection (45 min)
-4. **03-activity-detector.md** - Pose & gesture recognition (45 min)
-5. **04-summarizer.md** - Report aggregation (30 min)
-6. **05-demo-script.md** - Script generation (20 min)
+2. **01-yaml-setup.md** - YAML configuration structure (20 min)
+3. **02-pdf-interpretator.md** - PDF parsing agent (30 min)
+4. **03-facial-recognition.md** - Face & emotion detection (45 min)
+5. **04-activity-detector.md** - Pose & gesture recognition (45 min)
+6. **05-summarizer.md** - Report aggregation (30 min)
 7. **06-orchestration.md** - Full system integration (30 min)
+
+### Key Changes
+
+- ✅ **YAML configuration** for agents and tasks
+- ✅ **Removed demo video agent** (4 agents instead of 5)
+- ✅ **Cleaner structure** - configuration separate from code
+- ✅ **Easier to modify** - change agent behavior without touching code
 
 ### Plan Document
 
@@ -68,37 +75,45 @@ By the end:
 
 | Module | What You Build | Time | Difficulty |
 |--------|----------------|------|------------|
-| 1 | PDF Parser + Agent | 30 min | Easy |
-| 2 | Facial Recognition | 45 min | Medium |
-| 3 | Activity Detection | 45 min | Medium |
-| 4 | Summarizer | 30 min | Easy |
-| 5 | Demo Script | 20 min | Easy |
+| 1 | YAML Setup & Structure | 20 min | Easy |
+| 2 | PDF Parser + Agent | 30 min | Easy |
+| 3 | Facial Recognition | 45 min | Medium |
+| 4 | Activity Detection | 45 min | Medium |
+| 5 | Summarizer | 30 min | Easy |
 | 6 | Orchestration | 30 min | Medium |
 
-**Total**: 3-4 hours
+**Total**: 3 hours
 
-### File Structure You'll Create
+### New File Structure (YAML-Based)
 
 ```
 your-project/
-├── agents/
-│   ├── pdf_interpretator.py
-│   ├── facial_recognition_agent.py
-│   ├── activity_detector_agent.py
-│   ├── summarizer_agent.py
-│   └── demo_script_agent.py
+├── config/
+│   ├── agents.yaml          # Agent configurations
+│   ├── tasks.yaml           # Task definitions
+│   ├── llm_config.py        # LLM setup
+│   └── settings.py          # App settings
 ├── tools/
 │   ├── pdf_parser_tool.py
 │   ├── facial_recognition_tool.py
 │   └── activity_detector_tool.py
-├── config/
-│   ├── llm_config.py
-│   └── settings.py
+├── agents/
+│   └── agent_factory.py     # Creates agents from YAML
 ├── tests/
-│   └── test_*.py (6 test files)
+│   └── test_*.py (5 test files)
 ├── main_orchestrator.py
-└── .env
+├── .env
+└── requirements.txt
 ```
+
+### Why YAML Configuration?
+
+**Benefits:**
+- ✅ **Cleaner code** - Separate config from logic
+- ✅ **Easy to modify** - Change prompts without code changes
+- ✅ **Version control friendly** - Track config changes
+- ✅ **Reusable** - Same code, different configs
+- ✅ **Team collaboration** - Non-coders can modify prompts
 
 ---
 
