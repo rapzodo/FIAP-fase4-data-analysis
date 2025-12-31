@@ -70,6 +70,7 @@ generate_summary:
     Format in clean markdown with clear headings and bullet points
   expected_output: "Comprehensive markdown summary report with all sections"
   agent: summarizer
+  output_file: "summary-report.md"
   context:
     - analyze_facial_recognition
     - detect_activities
@@ -79,5 +80,6 @@ translate_report:
     Translate the summary report to {language}
   expected_output: "A precise 1:1 translated report"
   agent: translator
+  output_file: "'{language}'-summary-report.md"
   context:
     - generate_summary
