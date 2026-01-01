@@ -1,11 +1,11 @@
 import json
 from pathlib import Path
-from tools.facial_recognition_tool import FacialRecognitionTool
+from tools.facial_detection_tool import FacialDetectionTool
 
 PROJECT_ROOT = Path(__file__).parent.parent
 VIDEO_PATH = PROJECT_ROOT / "tech-challenge" / "Unlocking Facial Recognition_ Diverse Activities Analysis.mp4"
 
-tool = FacialRecognitionTool()
+tool = FacialDetectionTool()
 
 if not VIDEO_PATH.exists():
     print(f"❌ Video file not found: {VIDEO_PATH}")

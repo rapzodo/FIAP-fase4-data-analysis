@@ -94,6 +94,78 @@ class EmotionDetectionError(BaseModel):
 
 ---
 
+## 💻 Step 1.5: Add Task Output Model for Facial Analysis
+
+**File**: `models/facial_recognition_models.py` (ADD to end of file)
+
+Now add the **task output model** that the agent will use to return aggregated facial + emotion analysis:
+
+```python
+# === Task Output Model (ADD AT END) ===
+
+class EmotionData(BaseModel):
+    """Emotion statistic for task output."""
+    emotion: str = Field(..., description="Emotion name")
+    percentage: float = Field(..., description="Percentage of frames")
+    frame_count: int = Field(..., description="Number of frames")
+
+
+class FacialAnalysisTaskOutput(BaseModel):
+    """Task output: Aggregated facial recognition and emotion analysis."""
+    total_frames: int = Field(..., description="Total frames analyzed")
+    faces_detected_count: int = Field(..., description="Total faces detected")
+    emotion_distribution: List[EmotionData] = Field(
+        default_factory=list,
+        description="Distribution of emotions"
+    )
+    avg_confidence: float = Field(..., description="Average confidence")
+    detection_rate: float = Field(..., description="Detection rate %")
+    anomalies_count: int = Field(..., description="Total anomalies")
+    anomaly_types: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Anomaly type counts"
+    )
+```
+
+**Why add this?**
+- ✅ **Tool outputs**: `FacialRecognitionResult` and `EmotionDetectionResult` (what tools return)
+- ✅ **Task output**: `FacialAnalysisTaskOutput` (what the agent returns to next task)
+- ✅ **Separation**: Tools work with detailed data, task outputs provide aggregated summaries
+
+---
+
+## 💻 Step 1.6: Update tasks.yml
+
+**File**: `config/tasks.yml`
+
+Update the `analyze_facial_recognition` task to use the Pydantic output:
+
+```yaml
+analyze_facial_recognition:
+  description: |
+    analyze the video at '{video_path}' for faces and emotions.
+    use facial_recognition_tool with sample_rate={frame_sample_rate}.
+    
+    Output:
+    1. Total frames analyzed
+    2. Faces detected with timeframe
+    3. Emotion distribution (happy, sad, angry, neutral, surprise, fear, disgust)
+    4. confidence scores
+    5. Anomalies detected (no face, low confidence, not a human)
+    
+    Format as structured data report with statistics
+  expected_output: "Facial recognition analysis with emotion data and statistics"
+  agent: facial_emotions_analyzer
+  output_pydantic: FacialAnalysisTaskOutput  # ✅ Add this line
+```
+
+**What this does:**
+- Agent will aggregate tool outputs into structured `FacialAnalysisTaskOutput`
+- Next task (summarizer) receives validated, structured data
+- Type-safe data flow between tasks
+
+---
+
 ## 💻 Step 2: Create Emotion Detection Tool
 
 **File**: `tools/emotion_detection_tool.py`
@@ -103,7 +175,7 @@ from crewai.tools import BaseTool
 import cv2
 from deepface import DeepFace
 
-from models.facial_recognition_models import (
+from models.facial_detection_models import (
     EmotionDetectionInput,
     EmotionScores,
     FaceEmotion,
@@ -120,7 +192,7 @@ class EmotionDetectionTool(BaseTool):
         'Requires face locations from facial_recognition tool.'
     )
     args_schema: type[EmotionDetectionInput] = EmotionDetectionInput
-    
+
     def _run(self, video_path: str, face_locations: list) -> str:
         """
         Detect emotions in pre-identified faces.
@@ -139,19 +211,19 @@ class EmotionDetectionTool(BaseTool):
             emotion_summary={},
             anomalies=[]
         )
-        
+
         # TODO: Open video
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             error = EmotionDetectionError(error=f"Cannot open: {video_path}")
             return error.model_dump_json(indent=2)
-        
+
         # TODO: Initialize emotion counters
         emotion_counts = {
             "happy": 0, "sad": 0, "angry": 0,
             "neutral": 0, "surprise": 0, "fear": 0, "disgust": 0
         }
-        
+
         # TODO: Group faces by frame for efficient processing
         faces_by_frame = {}
         for face in face_locations:
@@ -160,14 +232,14 @@ class EmotionDetectionTool(BaseTool):
             if frame_num not in faces_by_frame:
                 faces_by_frame[frame_num] = []
             faces_by_frame[frame_num].append(face)
-        
+
         try:
             # TODO: For each frame with faces
             for frame_num, faces in faces_by_frame.items():
                 # Seek to frame
                 cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num - 1)
                 ret, frame = cap.read()
-                
+
                 if not ret:
                     # Add anomalies for failed frame reads
                     for face in faces:
@@ -180,14 +252,14 @@ class EmotionDetectionTool(BaseTool):
                             type="frame_read_failed"
                         ))
                     continue
-                
+
                 # TODO: Process each face in this frame
                 for face in faces:
                     # Extract face data (handle dict or Pydantic)
                     face_id = face.get('face_id') if isinstance(face, dict) else face.face_id
                     timestamp = face.get('timestamp') if isinstance(face, dict) else face.timestamp
                     location = face.get('location') if isinstance(face, dict) else face.location
-                    
+
                     # Get coordinates
                     if isinstance(location, dict):
                         top, left = location['top'], location['left']
@@ -195,10 +267,10 @@ class EmotionDetectionTool(BaseTool):
                     else:
                         top, left = location.top, location.left
                         right, bottom = location.right, location.bottom
-                    
+
                     # Extract face region
                     face_img = frame[top:bottom, left:right]
-                    
+
                     if face_img.size == 0:
                         result.anomalies.append(EmotionAnomaly(
                             frame=frame_num,
@@ -207,7 +279,7 @@ class EmotionDetectionTool(BaseTool):
                             type="invalid_face_region"
                         ))
                         continue
-                    
+
                     try:
                         # TODO: Analyze emotion with DeepFace
                         analysis = DeepFace.analyze(
@@ -216,15 +288,15 @@ class EmotionDetectionTool(BaseTool):
                             enforce_detection=False,
                             silent=True
                         )
-                        
+
                         # Handle list or dict response
                         if isinstance(analysis, list):
                             analysis = analysis[0]
-                        
+
                         dominant_emotion = analysis['dominant_emotion']
                         emotion_scores_raw = analysis['emotion']
                         confidence = max(emotion_scores_raw.values())
-                        
+
                         # Create EmotionScores
                         emotion_scores = EmotionScores(
                             angry=round(emotion_scores_raw.get('angry', 0), 2),
@@ -235,7 +307,7 @@ class EmotionDetectionTool(BaseTool):
                             surprise=round(emotion_scores_raw.get('surprise', 0), 2),
                             neutral=round(emotion_scores_raw.get('neutral', 0), 2)
                         )
-                        
+
                         # Create FaceEmotion result
                         face_emotion = FaceEmotion(
                             frame=frame_num,
@@ -245,11 +317,11 @@ class EmotionDetectionTool(BaseTool):
                             confidence=round(confidence, 2),
                             emotion_scores=emotion_scores
                         )
-                        
+
                         result.emotions_detected.append(face_emotion)
                         emotion_counts[dominant_emotion] += 1
                         result.faces_analyzed += 1
-                        
+
                         # Check for low confidence
                         if confidence < 50:
                             result.anomalies.append(EmotionAnomaly(
@@ -259,7 +331,7 @@ class EmotionDetectionTool(BaseTool):
                                 type="low_confidence",
                                 confidence=round(confidence, 2)
                             ))
-                    
+
                     except Exception as e:
                         result.anomalies.append(EmotionAnomaly(
                             frame=frame_num,
@@ -268,12 +340,12 @@ class EmotionDetectionTool(BaseTool):
                             type="emotion_detection_failed",
                             error=str(e)
                         ))
-        
+
         finally:
             cap.release()
-        
+
         result.emotion_summary = emotion_counts
-        
+
         return result.model_dump_json(indent=2)
 ```
 
@@ -468,4 +540,3 @@ if isinstance(analysis, list):
 ---
 
 **Ready?** Move to Module 4! 🚀
-

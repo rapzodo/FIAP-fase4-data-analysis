@@ -1,6 +1,6 @@
 import yaml
 from crewai import Task
-from huggingface_hub import Agent
+from crewai.agents.agent_builder.base_agent import BaseAgent
 
 from config.settings import VIDEO_PATH, FRAME_SAMPLE_RATE
 
@@ -10,7 +10,7 @@ class TaskFactory:
         with open(config_path, 'r') as file:
             self.config = yaml.safe_load(file)
 
-    def create_task(self, task_name: str, agent: Agent, context_tasks: dict = None) -> Task:
+    def create_task(self, task_name: str, agent: BaseAgent, context_tasks: dict = None) -> Task:
         if task_name not in self.config:
             raise ValueError(f'Task name {task_name} does not exist')
 

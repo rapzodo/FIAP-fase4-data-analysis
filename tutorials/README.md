@@ -6,10 +6,11 @@
 
 Build a 3-agent video analysis system by coding each component yourself with step-by-step guidance. Focus on video processing with clean, testable code.
 
-## 📚 Modules (2.5 hours total)
+## 📚 Modules (3 hours total)
 
-### [Module 1: YAML Configuration Setup](01-yaml-setup.md) - 20 min
+### [Module 1: YAML Configuration Setup](01-yaml-setup.md) - 25 min
 - YAML-based agent and task configuration
+- Pydantic output schemas for structured task outputs
 - Factory pattern for creating agents/tasks
 - **Test**: unittest for config validation
 
@@ -32,6 +33,12 @@ Build a 3-agent video analysis system by coding each component yourself with ste
 - Wire all agents together
 - Task flow & error handling
 - **Test**: Integration tests
+
+### [Module 6: Pydantic Output Best Practices](07-pydantic-outputs.md) - 15 min
+- When to use Pydantic vs JSON vs Text outputs
+- Decision matrix and patterns
+- Tool-level vs Task-level validation
+- Real-world examples from video analysis system
 
 ## 📝 Tutorial Format
 

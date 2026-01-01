@@ -1,7 +1,7 @@
-analyze_facial_recognition:
+analyze_facial_detection:
   description: |
     analyze the video at '{video_path}' for faces and emotions.
-    use facial_recognition_tool with sample_rate={frame_sample_rate}.
+    use facial_detection_tool with sample_rate={frame_sample_rate}.
     
     Output:
     1. Total frames analyzed
@@ -11,8 +11,9 @@ analyze_facial_recognition:
     5. Anomalies detected (no face, low confidence, not a human)
     
     Format as structured data report with statistics
-  expected_output: "Facial recognition analysis with emotion data and statistics"
+  expected_output: "Facial and emotion detection and data analysis and statistics"
   agent: facial_emotions_analyzer
+  output_pydantic: FacialAnalysisTaskOutput
 
 detect_activities:
   description: |
@@ -29,6 +30,7 @@ detect_activities:
 
   expected_output: "Activity detection analysis with pose, gestures and timeline"
   agent: activity_detector
+  output_pydantic: ActivityAnalysisTaskOutput
 
 generate_summary:
   description: |
@@ -72,7 +74,7 @@ generate_summary:
   agent: summarizer
   output_file: "summary-report.md"
   context:
-    - analyze_facial_recognition
+    - analyze_facial_detection
     - detect_activities
 
 translate_report:

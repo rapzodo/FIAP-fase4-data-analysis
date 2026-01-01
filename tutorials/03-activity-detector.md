@@ -13,14 +13,150 @@ An agent that identifies human activities in videos:
 ## 📋 Files to Create
 
 ```
-tools/activity_detector_tool.py
-agents/activity_detector_agent.py
-tests/test_activity_agent.py
+models/activity_detection_models.py     # Create Pydantic models
+tools/activity_detector_tool.py          # Create activity detector tool
+tests/test_activity_detector_tool.py     # Create unit tests
+config/tasks.yml                          # Update with output_pydantic
 ```
 
 ## 💻 Implementation
 
-### Step 1: Create Activity Detector Tool
+### Step 1: Create Activity Detection Models
+
+**File**: `models/activity_detection_models.py` (NEW FILE)
+
+Create a new file for all activity detection models:
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Dict, Optional
+
+
+# === Tool Input/Output Models ===
+
+class ActivityDetectorInput(BaseModel):
+    """Input for activity detector tool."""
+    video_path: str = Field(..., description="Path to video file")
+    sample_rate: int = Field(5, description="Process every Nth frame")
+
+
+class ActivityDetection(BaseModel):
+    """Single activity detection result."""
+    frame: int
+    timestamp: float
+    activities: List[str]  # e.g., ["standing", "hands_raised"]
+
+
+class ActivityAnomaly(BaseModel):
+    """Activity detection anomaly."""
+    frame: int
+    timestamp: float
+    type: str
+    details: Optional[str] = None
+
+
+class ActivityDetectorResult(BaseModel):
+    """Complete activity detection tool result."""
+    frames_analyzed: int
+    activities: List[ActivityDetection]
+    activity_summary: Dict[str, int]
+    pose_detections: int
+    hand_detections: int
+    anomalies: List[ActivityAnomaly]
+
+
+class ActivityDetectorError(BaseModel):
+    """Error response."""
+    error: str
+
+
+# === Task Output Models ===
+
+class ActivityData(BaseModel):
+    """Single activity statistic for task output."""
+    activity: str = Field(..., description="Activity name")
+    percentage: float = Field(..., description="Percentage of frames")
+    frame_count: int = Field(..., description="Number of frames")
+
+
+class PoseData(BaseModel):
+    """Single pose statistic for task output."""
+    pose: str = Field(..., description="Pose name")
+    percentage: float = Field(..., description="Percentage of frames")
+    frame_count: int = Field(..., description="Number of frames")
+
+
+class GestureData(BaseModel):
+    """Single gesture statistic for task output."""
+    gesture: str = Field(..., description="Gesture name")
+    percentage: float = Field(..., description="Percentage of frames")
+    frame_count: int = Field(..., description="Number of frames")
+
+
+class ActivityAnalysisTaskOutput(BaseModel):
+    """Task output: Aggregated activity, pose, and gesture analysis."""
+    total_frames: int = Field(..., description="Total frames analyzed")
+    activities: List[ActivityData] = Field(
+        default_factory=list,
+        description="Activities detected"
+    )
+    poses: List[PoseData] = Field(
+        default_factory=list,
+        description="Poses detected"
+    )
+    gestures: List[GestureData] = Field(
+        default_factory=list,
+        description="Hand gestures detected"
+    )
+    pose_detection_rate: float = Field(..., description="Pose detection rate %")
+    anomalies_count: int = Field(..., description="Total anomalies")
+    anomaly_types: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Anomaly type counts"
+    )
+```
+
+**Why separate file for activity models?**
+- ✅ **Clean organization**: All activity-related models in one place
+- ✅ **Tool outputs**: Models for tool results
+- ✅ **Task outputs**: Models for agent/task results
+- ✅ **Reusability**: Can be imported where needed
+
+---
+
+### Step 1.5: Update tasks.yml
+
+**File**: `config/tasks.yml`
+
+Update the `detect_activities` task to use Pydantic output:
+
+```yaml
+detect_activities:
+  description: |
+    Analyze the video at '{video_path}' for human activities, poses and gestures.
+    Use activity_detector_tool with sample_rate={frame_sample_rate}.
+    
+    Identify:
+    1. Total frames analyzed
+    2. Activities detected (playing, running, jumping, etc)
+    3. poses detected (standing, sitting, laying, crouching, etc)
+    4. hand gestures (raised, waiving)
+    5. Activity timelines with timestamps
+    6. Anomalies detected (no poses, no human)
+
+  expected_output: "Activity detection analysis with pose, gestures and timeline"
+  agent: activity_detector
+  output_pydantic: ActivityAnalysisTaskOutput  # ✅ Add this line
+```
+
+**What this does:**
+- Agent aggregates tool output into structured `ActivityAnalysisTaskOutput`
+- Next task (summarizer) receives validated data
+- Type-safe data flow
+
+---
+
+### Step 2: Create Activity Detector Tool
 
 **File**: `tools/activity_detector_tool.py`
 
@@ -461,4 +597,3 @@ if abs(current_y - previous_y) > threshold:  # Moving
 ---
 
 **Ready?** Move to `04-summarizer.md` when this works! 🚀
-

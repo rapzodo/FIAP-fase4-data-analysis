@@ -4,7 +4,7 @@ from crewai.project import CrewBase, agent, task, crew
 from agents.agents_factory import AgentsFactory
 from config.settings import AGENTS_CONFIG_PATH, TASKS_CONFIG_PATH
 from tasks.task_factory import TaskFactory
-from tools.facial_recognition_tool import FacialRecognitionTool
+from tools.facial_detection_tool import FacialDetectionTool
 
 @CrewBase
 class VideoAnalysisSummaryCrew:
@@ -12,11 +12,11 @@ class VideoAnalysisSummaryCrew:
     @agent
     def facial_emotions_analyzer_agent(self) -> Agent:
         return AgentsFactory(AGENTS_CONFIG_PATH).create_agent("facial_emotions_analyzer",
-                                                              {"Facial Recognition": FacialRecognitionTool})
+                                                              {"facial_detection_tool": FacialDetectionTool()})
     @task
-    def analyze_facial_recognition_task(self) -> Task:
+    def analyze_facial_detection_task(self) -> Task:
         facial_analyzer = self.facial_emotions_analyzer_agent()
-        return TaskFactory(TASKS_CONFIG_PATH).create_task("analyze_facial_recognition", facial_analyzer)
+        return TaskFactory(TASKS_CONFIG_PATH).create_task("analyze_facial_detection", facial_analyzer)
 
     @crew
     def create(self):
@@ -25,7 +25,7 @@ class VideoAnalysisSummaryCrew:
                 self.facial_emotions_analyzer_agent(),
             ],
             tasks=[
-                self.analyze_facial_recognition_task(),
+                self.analyze_facial_detection_task(),
             ],
             process=Process.sequential,
             verbose=True,

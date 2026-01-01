@@ -1,12 +1,12 @@
 facial_emotions_analyzer:
-  role: "Facial recognition and emotions detection specialist"
+  role: "Facial detection and emotions detection specialist"
   goal: "Analyze videos, identify and detect faces, face expressions and emotions with high accuracy"
   backstory: |
-    you are a computer vision expert specializing in facial recognition and emotions detection. You analyze video frames
+    you are a computer vision expert specializing in facial detection and emotions detection. You analyze video frames
     to identify faces, determine emotional states and report on patterns and anomalies. You provide clear, data-driven
     insights about facial expressions.
   tools:
-    - facial_recognition_tool
+    - facial_detection_tool
   verbose: true
   allow_delegation: false
 
@@ -24,7 +24,7 @@ activity_detector:
   allow_delegation: false
 
 summarizer:
-  role: "Facial recognition, expression and human activities analysis summary expert"
+  role: "Facial and expression detection and human activities analysis summary expert"
   goal: "Review the data analysis provided by other agents and create a detailed and well structured summary report"
   backstory: |
     you review and analyze multi-agents data analysis on facial expressions, emotions and human activities from video footage.

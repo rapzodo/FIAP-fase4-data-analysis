@@ -88,7 +88,120 @@ translator:
 - **Tools** each agent can use
 - **Settings** like verbosity
 
-### Step 2: Create Task Configuration
+### Step 2: Create Task Output Models (Organized by Agent/Goal)
+
+Before defining tasks, create Pydantic models for structured task outputs organized by domain.
+
+**Best Practice**: Separate model files by agent/goal for better organization.
+
+**File Structure**:
+```
+models/
+├── facial_recognition_models.py    # Tool outputs (already exists)
+├── emotion_detection_models.py     # Emotion detection models
+├── facial_analysis_outputs.py      # Task outputs for facial analysis
+└── activity_detection_models.py    # Activity detection models
+```
+
+#### File 1: `models/emotion_detection_models.py`
+
+```python
+from pydantic import BaseModel, Field
+
+
+class EmotionData(BaseModel):
+    """Emotion detection data."""
+    emotion: str = Field(..., description="Detected emotion")
+    percentage: float = Field(..., description="Percentage of frames with this emotion")
+    frame_count: int = Field(..., description="Number of frames with this emotion")
+```
+
+#### File 2: `models/facial_analysis_outputs.py`
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Dict
+from models.emotion_detection_models import EmotionData
+
+
+class FacialAnalysisOutput(BaseModel):
+    """Structured output for facial recognition analysis task."""
+    total_frames: int = Field(..., description="Total number of frames analyzed")
+    faces_detected_count: int = Field(..., description="Total number of faces detected")
+    emotion_distribution: List[EmotionData] = Field(
+        default_factory=list,
+        description="Distribution of emotions detected"
+    )
+    avg_confidence: float = Field(..., description="Average confidence score")
+    detection_rate: float = Field(..., description="Face detection rate (percentage)")
+    anomalies_count: int = Field(..., description="Total number of anomalies detected")
+    anomaly_types: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Types of anomalies and their frequencies"
+    )
+```
+
+#### File 3: `models/activity_detection_models.py`
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Dict
+
+
+class ActivityData(BaseModel):
+    """Activity detection data."""
+    activity: str = Field(..., description="Detected activity")
+    percentage: float = Field(..., description="Percentage of frames with this activity")
+    frame_count: int = Field(..., description="Number of frames with this activity")
+
+
+class PoseData(BaseModel):
+    """Pose detection data."""
+    pose: str = Field(..., description="Detected pose")
+    percentage: float = Field(..., description="Percentage of frames with this pose")
+    frame_count: int = Field(..., description="Number of frames with this pose")
+
+
+class GestureData(BaseModel):
+    """Hand gesture detection data."""
+    gesture: str = Field(..., description="Detected hand gesture")
+    percentage: float = Field(..., description="Percentage of frames with this gesture")
+    frame_count: int = Field(..., description="Number of frames with this gesture")
+
+
+class ActivityAnalysisOutput(BaseModel):
+    """Structured output for activity detection analysis task."""
+    total_frames: int = Field(..., description="Total number of frames analyzed")
+    activities: List[ActivityData] = Field(
+        default_factory=list,
+        description="Activities detected with statistics"
+    )
+    poses: List[PoseData] = Field(
+        default_factory=list,
+        description="Poses detected with statistics"
+    )
+    gestures: List[GestureData] = Field(
+        default_factory=list,
+        description="Hand gestures detected with statistics"
+    )
+    pose_detection_rate: float = Field(..., description="Pose detection success rate")
+    anomalies_count: int = Field(..., description="Total number of anomalies detected")
+    anomaly_types: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Types of anomalies and their frequencies"
+    )
+```
+
+**Why Separate Files?**
+- ✅ **Better organization**: Each agent has its own model file
+- ✅ **Type safety**: Ensures agents return valid structured data
+- ✅ **Easier maintenance**: Changes isolated to specific domains
+- ✅ **Reusability**: Import shared models where needed
+- ✅ **Scalability**: Easy to add new agents without cluttering
+
+> 💡 **Note**: See [Module 6](07-pydantic-outputs.md) for a deep dive on when to use Pydantic vs JSON vs text outputs.
+
+### Step 3: Create Task Configuration
 
 **File**: `config/tasks.yaml`
 
@@ -112,6 +225,7 @@ analyze_facial_recognition:
     Format as structured data report with statistics.
   expected_output: "Facial recognition analysis with emotion data and statistics"
   agent: facial_recognition
+  output_pydantic: FacialAnalysisTaskOutput  # ✅ Structured output for downstream tasks
   context: []
 
 detect_activities:
@@ -130,6 +244,7 @@ detect_activities:
     Format as structured activity report with timeline.
   expected_output: "Activity detection analysis with pose data and timeline"
   agent: activity_detector
+  output_pydantic: ActivityAnalysisTaskOutput  # ✅ Structured output for downstream tasks
   context: []
 
 generate_summary:
@@ -170,6 +285,7 @@ generate_summary:
     Format in clean markdown with clear headings and bullet points.
   expected_output: "Comprehensive markdown summary report with all sections"
   agent: summarizer
+  output_file: "summary-report.md"  # ❌ No Pydantic - human-readable markdown output
   context:
     - analyze_facial_recognition
     - detect_activities
@@ -191,6 +307,7 @@ translate_report:
     Format: Same markdown structure as original, with all content translated.
   expected_output: "Translated report in target language with same structure"
   agent: translator
+  output_file: "{target_language}-summary-report.md"  # ❌ No Pydantic - just text translation
   context:
     - generate_summary
 ```
@@ -199,6 +316,8 @@ translate_report:
 - **4 tasks** in execution order
 - **Task dependencies** via context
 - **Placeholders** for dynamic values (e.g., {video_path}, {target_language})
+- **Pydantic outputs**: First 2 tasks use structured schemas
+- **File outputs**: Last 2 tasks write markdown files for humans
 - **Clear expected outputs**
 
 ### Step 3: Update Settings
@@ -300,6 +419,8 @@ class AgentFactory:
 import yaml
 from crewai import Task
 from config.settings import VIDEO_PATH, FRAME_SAMPLE_RATE, TARGET_LANGUAGE
+from models.facial_analysis_outputs import FacialAnalysisOutput
+from models.activity_detection_models import ActivityAnalysisOutput
 
 
 class TaskFactory:
@@ -309,6 +430,12 @@ class TaskFactory:
         """Load task configurations from YAML."""
         with open(config_path, 'r') as f:
             self.config = yaml.safe_load(f)
+        
+        # Register Pydantic models (imported from separate files)
+        self.pydantic_models = {
+            'FacialAnalysisOutput': FacialAnalysisOutput,
+            'ActivityAnalysisOutput': ActivityAnalysisOutput,
+        }
     
     def create_task(self, task_name: str, agent, context_tasks: dict = None) -> Task:
         """
@@ -341,15 +468,28 @@ class TaskFactory:
                 if context_name in context_tasks:
                     context.append(context_tasks[context_name])
         
-        # Create task
-        task = Task(
-            description=description,
-            expected_output=task_config['expected_output'],
-            agent=agent,
-            context=context if context else None
-        )
+        # Build task arguments
+        task_kwargs = {
+            'description': description,
+            'expected_output': task_config['expected_output'],
+            'agent': agent,
+            'context': context if context else None,
+        }
         
-        return task
+        # Add Pydantic output schema if specified
+        if 'output_pydantic' in task_config:
+            pydantic_class_name = task_config['output_pydantic']
+            if pydantic_class_name in self.pydantic_models:
+                task_kwargs['output_pydantic'] = self.pydantic_models[pydantic_class_name]
+            else:
+                print(f"⚠️  Warning: Pydantic model '{pydantic_class_name}' not registered")
+        
+        # Add output file if specified
+        if 'output_file' in task_config:
+            task_kwargs['output_file'] = task_config['output_file']
+        
+        # Create task with all configured parameters
+        return Task(**task_kwargs)
     
     def get_all_tasks(self):
         """Get list of all task names in config."""
@@ -361,6 +501,13 @@ class TaskFactory:
             raise ValueError(f"Task '{task_name}' not found")
         return self.config[task_name]['agent']
 ```
+
+**Key additions:**
+- `self.pydantic_models` dictionary to register output schemas
+- Check for `output_pydantic` in task config
+- Look up and apply the Pydantic model class
+- Support for `output_file` parameter
+- Dynamic `task_kwargs` building for flexibility
 
 ## 🧪 Testing with unittest
 

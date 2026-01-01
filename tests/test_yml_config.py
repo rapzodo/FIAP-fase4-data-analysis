@@ -46,5 +46,5 @@ class TestYamlConfig(unittest.TestCase):
 
     def test_task_agent_name(self):
         factory = TaskFactory(TASKS_CONFIG_PATH)
-        agent = factory.get_task_agent_name("analyze_facial_recognition")
+        agent = factory.get_task_agent_name("analyze_facial_detection")
         self.assertEqual(agent, "facial_emotions_analyzer")

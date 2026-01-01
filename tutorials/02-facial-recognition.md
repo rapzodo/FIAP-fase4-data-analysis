@@ -89,7 +89,7 @@ import cv2
 import numpy as np
 import face_recognition
 
-from models.facial_recognition_models import (
+from models.facial_detection_models import (
     FacialRecognitionInput,
     FaceLocation,
     DetectedFace,
@@ -211,49 +211,49 @@ import json
 from unittest.mock import patch, MagicMock
 
 from tools.facial_recognition_tool import FacialRecognitionTool
-from models.facial_recognition_models import FacialRecognitionResult
+from models.facial_detection_models import FacialRecognitionResult
 
 
 class TestFacialRecognitionTool(unittest.TestCase):
     """Test suite for FacialRecognitionTool."""
-    
+
     def setUp(self):
         """Set up test fixtures."""
         self.tool = FacialRecognitionTool()
-    
+
     def test_tool_name(self):
         """Test tool has correct name."""
         self.assertEqual(self.tool.name, "facial_recognition")
-    
+
     def test_tool_description(self):
         """Test tool has description."""
         self.assertIsNotNone(self.tool.description)
         self.assertIn("face", self.tool.description.lower())
-    
+
     def test_invalid_video_returns_error(self):
         """Test that invalid video path returns error."""
         result = self.tool._run("nonexistent_video.mp4")
         result_dict = json.loads(result)
-        
+
         self.assertIn("error", result_dict)
         self.assertIn("Cannot open", result_dict["error"])
-    
+
     def test_result_is_valid_json(self):
         """Test tool returns valid JSON."""
         result = self.tool._run("invalid.mp4")
-        
+
         try:
             json.loads(result)
         except json.JSONDecodeError:
             self.fail("Tool output is not valid JSON")
-    
+
     def test_result_has_correct_structure(self):
         """Test result structure on error."""
         result = self.tool._run("invalid.mp4")
         result_dict = json.loads(result)
-        
+
         self.assertIsInstance(result_dict, dict)
-    
+
     @patch('cv2.VideoCapture')
     def test_with_mocked_video(self, mock_video):
         """Test with mocked video capture."""
@@ -262,19 +262,19 @@ class TestFacialRecognitionTool(unittest.TestCase):
         mock_cap.get.return_value = 30  # 30 fps
         mock_cap.read.return_value = (False, None)  # No frames
         mock_video.return_value = mock_cap
-        
+
         result = self.tool._run("mock.mp4", sample_rate=5)
         result_dict = json.loads(result)
-        
+
         self.assertIn("frames_analyzed", result_dict)
         self.assertEqual(result_dict["frames_analyzed"], 0)
-    
+
     def test_no_emotion_in_result(self):
         """Test that detected faces have NO emotion field."""
         # This tool should NOT have emotion analysis
         result = self.tool._run("invalid.mp4")
         result_dict = json.loads(result)
-        
+
         # If there were faces, they should not have emotion
         if "faces_detected" in result_dict:
             for face in result_dict["faces_detected"]:
