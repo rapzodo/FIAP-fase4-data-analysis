@@ -15,9 +15,9 @@ from models import (
 
 
 class FacialRecognitionTool(BaseTool):
-    name = "Facial Recognition"
-    description = "Detects faces using facial recognition in videos"
-    args_schema = FaceRecognitionInput
+    name: str = "Facial Recognition"
+    description: str = "Detects faces using facial recognition in videos"
+    args_schema: type[FaceRecognitionInput] = FaceRecognitionInput
 
     def _run(self, video_path: str, sample_rate: int = 5):
         cap = cv2.VideoCapture(video_path)
@@ -80,7 +80,7 @@ class FacialRecognitionTool(BaseTool):
                 face_id_counter += 1
 
         result.total_faces = len(result.faces_detected)
-        result.faces_analyzed = analyzed_count
+        result.frames_analyzed = analyzed_count
         return result
 
     @staticmethod
@@ -88,12 +88,12 @@ class FacialRecognitionTool(BaseTool):
         return frame_count / fps if fps > 0 else float(frame_count)
 
     @staticmethod
-    def scale_to_original_size(top: int, right:int, bottom:int, left:int) -> Tuple[int, int, int, int]:
+    def scale_to_original_size(top: int, right: int, bottom: int, left: int) -> Tuple[int, int, int, int]:
         multiply_factor = 4
         return top * multiply_factor, right * multiply_factor, bottom * multiply_factor, left * multiply_factor
 
     @staticmethod
-    def resize_and_convert_to_rgb(frame : np.ndarray) -> np.ndarray:
+    def resize_and_convert_to_rgb(frame: np.ndarray) -> np.ndarray:
         resize_factor = 0.5
         small_frame = cv2.resize(frame, (0, 0), fx=resize_factor, fy=resize_factor)
         return np.ascontiguousarray(small_frame[:, :, ::-1])

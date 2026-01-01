@@ -43,3 +43,8 @@ class TestYamlConfig(unittest.TestCase):
             self.assertIsNotNone(factory.config[agent]['description'])
             self.assertIsNotNone(factory.config[agent]['agent'])
             self.assertIsNotNone(factory.config[agent]['expected_output'])
+
+    def test_task_agent_name(self):
+        factory = TaskFactory(TASKS_CONFIG_PATH)
+        agent = factory.get_task_agent_name("analyze_facial_recognition")
+        self.assertEqual(agent, "facial_emotions_analyzer")
