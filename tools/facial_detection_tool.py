@@ -1,5 +1,7 @@
-from typing import Tuple
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='face_recognition_models')
 
+from typing import Tuple
 from crewai.tools import BaseTool
 import cv2
 import numpy as np

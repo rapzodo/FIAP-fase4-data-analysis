@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from tools.facial_detection_tool import FacialDetectionTool
+from tools import FacialDetectionTool
 
 PROJECT_ROOT = Path(__file__).parent.parent
 VIDEO_PATH = PROJECT_ROOT / "tech-challenge" / "Unlocking Facial Recognition_ Diverse Activities Analysis.mp4"
