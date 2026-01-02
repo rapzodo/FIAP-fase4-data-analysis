@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel, Field
 
@@ -10,9 +10,9 @@ class FaceDetectionInput(BaseModel):
 
 class FaceLocation(BaseModel):
     top: int = Field(..., description="Top face location")
-    left: int = Field(..., description="Left face location")
     right: int = Field(..., description="Right face location")
     bottom: int = Field(..., description="Bottom face location")
+    left: int = Field(..., description="Left face location")
 
 
 class FaceDetection(BaseModel):

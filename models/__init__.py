@@ -19,6 +19,7 @@ __all__ = [
     "FaceDetectionInput",
     "FaceLocation",
     "FaceDetection",
+    "FacialDetectionResult",
     "FacialDetectionError",
     "EmotionDetectionResult",
     "EmotionScores",

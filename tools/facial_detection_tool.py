@@ -1,7 +1,6 @@
 import warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='face_recognition_models')
 
-from typing import Tuple
 from crewai.tools import BaseTool
 import cv2
 import numpy as np
@@ -64,8 +63,7 @@ class FacialDetectionTool(BaseTool):
             face_locations = face_recognition.face_locations(rgb_small_frame)
 
             for face_location in face_locations:
-                top, right, bottom, left = face_location
-                top, right, bottom, left = self.scale_to_original_size(top, right, bottom, left)
+                top, right, bottom, left = self.scale_to_original_size(face_location)
 
                 detected_face = FaceDetection(
                     frame=frame_count,
@@ -90,9 +88,12 @@ class FacialDetectionTool(BaseTool):
         return frame_count / fps if fps > 0 else float(frame_count)
 
     @staticmethod
-    def scale_to_original_size(top: int, right: int, bottom: int, left: int) -> Tuple[int, int, int, int]:
+    def scale_to_original_size(face_location: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
         multiply_factor = 4
-        return top * multiply_factor, right * multiply_factor, bottom * multiply_factor, left * multiply_factor
+        return (face_location[0] * multiply_factor,
+                face_location[1] * multiply_factor,
+                face_location[2] * multiply_factor,
+                face_location[3] * multiply_factor)
 
     @staticmethod
     def resize_and_convert_to_rgb(frame: np.ndarray) -> np.ndarray:

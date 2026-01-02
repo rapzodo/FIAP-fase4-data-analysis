@@ -2,7 +2,6 @@ import json
 
 from tests.manual_test_facial import VIDEO_PATH
 from tools import FacialDetectionTool, EmotionDetectionTool
-from models import FaceDetection
 
 
 def test_pipeline():
