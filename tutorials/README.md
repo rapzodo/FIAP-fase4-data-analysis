@@ -14,7 +14,7 @@ Build a 3-agent video analysis system by coding each component yourself with ste
 - Factory pattern for creating agents/tasks
 - **Test**: unittest for config validation
 
-### [Module 2: Facial Recognition Agent](02-facial-recognition.md) - 45 min  
+### [Module 2: Facial Recognition Agent](02-facial-detection.md) - 45 min  
 - Video frame processing with OpenCV
 - Face detection + emotion analysis with DeepFace
 - **Test**: unittest for tool functionality

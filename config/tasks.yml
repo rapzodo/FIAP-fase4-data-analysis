@@ -13,7 +13,7 @@ analyze_facial_detection:
     Format as structured data report with statistics
   expected_output: "Facial and emotion detection and data analysis and statistics"
   agent: facial_emotions_analyzer
-  output_pydantic: FacialAnalysisTaskOutput
+  output_pydantic: FacialAnalysisOutput
 
 detect_activities:
   description: |
@@ -30,7 +30,7 @@ detect_activities:
 
   expected_output: "Activity detection analysis with pose, gestures and timeline"
   agent: activity_detector
-  output_pydantic: ActivityAnalysisTaskOutput
+  output_pydantic: ActivityAnalysisOutput
 
 generate_summary:
   description: |

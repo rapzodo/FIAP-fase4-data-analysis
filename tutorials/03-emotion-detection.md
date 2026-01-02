@@ -366,60 +366,68 @@ import unittest
 import json
 
 from tools.emotion_detection_tool import EmotionDetectionTool
+from models.facial_detection_models import FaceDetection, FaceLocation
 
 
 class TestEmotionDetectionTool(unittest.TestCase):
     """Test suite for EmotionDetectionTool."""
-    
+
     def setUp(self):
         """Set up test fixtures."""
         self.tool = EmotionDetectionTool()
         self.mock_faces = [
-            {
-                "frame": 1,
-                "timestamp": 0.03,
-                "face_id": 0,
-                "location": {"top": 10, "left": 5, "right": 20, "bottom": 30}
-            }
+            FaceDetection(
+                face_id=1,
+                location=FaceLocation(
+                    top=100,
+                    left=100,
+                    right=200,
+                    bottom=200
+                ),
+                frame=1,
+                timestamp=0.5
+            )
         ]
-    
+
     def test_tool_name(self):
         """Test tool has correct name."""
         self.assertEqual(self.tool.name, "emotion_detection")
-    
+
     def test_tool_description(self):
         """Test tool has description."""
         self.assertIsNotNone(self.tool.description)
         self.assertIn("emotion", self.tool.description.lower())
-    
+
     def test_invalid_video_returns_error(self):
         """Test invalid video path returns error."""
         result = self.tool._run("nonexistent.mp4", self.mock_faces)
         result_dict = json.loads(result)
-        
+
         self.assertIn("error", result_dict)
-    
+
     def test_result_is_valid_json(self):
         """Test tool returns valid JSON."""
         result = self.tool._run("invalid.mp4", self.mock_faces)
-        
+
         try:
             json.loads(result)
         except json.JSONDecodeError:
             self.fail("Tool output is not valid JSON")
-    
+
     def test_empty_face_list(self):
-        """Test with empty face list."""
+        """Test with empty face list returns error (no video to analyze)."""
         result = self.tool._run("video.mp4", [])
         result_dict = json.loads(result)
-        
-        self.assertIn("faces_analyzed", result_dict)
-        self.assertEqual(result_dict["faces_analyzed"], 0)
+
+        # Empty face list with invalid video should return error
+        self.assertIn("error", result_dict)
 
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
 ```
+
+**Note**: All tests expect errors because video files don't exist in the test environment. This is the expected behavior - the tool validates video access before processing.
 
 ---
 
@@ -435,9 +443,9 @@ from tools.emotion_detection_tool import EmotionDetectionTool
 
 def test_pipeline():
     """Test face detection → emotion analysis pipeline."""
-    
+
     print("🧪 Testing Complete Pipeline\n")
-    
+
     # Step 1: Detect faces
     print("Step 1: Detecting faces...")
     facial_tool = FacialRecognitionTool()
@@ -445,30 +453,30 @@ def test_pipeline():
         video_path="tech-challenge/video.mp4",
         sample_rate=30
     )
-    
+
     faces_result = json.loads(faces_json)
     print(f"✅ Found {faces_result['total_faces']} faces")
-    
+
     if faces_result['total_faces'] == 0:
         print("⚠️  No faces detected")
         return
-    
+
     # Step 2: Analyze emotions
     print("\nStep 2: Analyzing emotions...")
     emotion_tool = EmotionDetectionTool()
     emotions_json = emotion_tool._run(
         video_path="tech-challenge/video.mp4",
-        face_locations=faces_result['faces_detected']
+        face_detections=faces_result['faces_detected']
     )
-    
+
     emotions_result = json.loads(emotions_json)
     print(f"✅ Analyzed {emotions_result['faces_analyzed']} faces")
-    
+
     print(f"\n📊 Emotion Summary:")
     for emotion, count in emotions_result['emotion_summary'].items():
         if count > 0:
             print(f"   {emotion}: {count}")
-    
+
     print("\n✅ Pipeline PASSED!")
 
 
@@ -532,7 +540,7 @@ if isinstance(analysis, list):
 **Module 4**: Build the Activity Detector Tool!
 
 **Pipeline complete so far:**
-1. ✅ Facial Recognition → Detect faces
+1. ✅ Facial Detection → Detect faces
 2. ✅ Emotion Detection → Analyze emotions  
 3. ⏭️ Activity Detection → Body poses
 4. ⏭️ Summarizer → Aggregate results

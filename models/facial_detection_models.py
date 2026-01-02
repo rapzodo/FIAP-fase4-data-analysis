@@ -18,16 +18,8 @@ class FaceLocation(BaseModel):
 class FaceDetection(BaseModel):
     face_id: int = Field(..., description="ID of the face")
     location: FaceLocation = Field(..., description="Location of the face")
-    frames: int = Field(..., description="Frame number of the face")
+    frame: int = Field(..., description="Frame number of the face")
     timestamp: float = Field(..., description="Timestamp of the face")
-
-
-class Anomaly(BaseModel):
-    type: str = Field(..., description="Type of the anomaly")
-    frame: int = Field(..., description="Frame number of the anomaly")
-    timestamp: float = Field(..., description="Timestamp of the anomaly")
-    confidence: Optional[float] = None
-    error: Optional[str] = None
 
 
 class FacialDetectionResult(BaseModel):

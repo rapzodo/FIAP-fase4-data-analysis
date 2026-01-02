@@ -17,7 +17,7 @@ from models import (
 
 
 class FacialDetectionTool(BaseTool):
-    name: str = "Facial Detection"
+    name: str = "facial detection"
     description: str = "Detects faces in videos"
     args_schema: type[FaceDetectionInput] = FaceDetectionInput
 
@@ -68,7 +68,7 @@ class FacialDetectionTool(BaseTool):
                 top, right, bottom, left = self.scale_to_original_size(top, right, bottom, left)
 
                 detected_face = FaceDetection(
-                    frames=frame_count,
+                    frame=frame_count,
                     timestamp=round(timestamp, 2),
                     face_id=face_id_counter,
                     location=FaceLocation(
