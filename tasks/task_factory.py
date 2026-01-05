@@ -2,7 +2,7 @@ import yaml
 from crewai import Task
 from crewai.agents.agent_builder.base_agent import BaseAgent
 
-from config.settings import VIDEO_PATH, FRAME_SAMPLE_RATE
+from config.settings import VIDEO_PATH, FRAME_SAMPLE_RATE, POSE_MODEL
 
 
 class TaskFactory:
@@ -17,6 +17,7 @@ class TaskFactory:
         task_config = self.config[task_name]
         description = task_config['description'].format(
             video_path=VIDEO_PATH,
+            pose_model=POSE_MODEL,
             frame_sample_rate=FRAME_SAMPLE_RATE
         )
 
@@ -31,6 +32,7 @@ class TaskFactory:
             description=description,
             expected_output=task_config['expected_output'],
             agent=agent,
+            max_retries=task_config['max_retries'],
             context=context if context else None,
         )
 

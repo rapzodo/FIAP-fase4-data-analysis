@@ -45,7 +45,3 @@ class FacialDetectionResult(BaseModel):
             ]
         }
 
-
-class FacialDetectionError(BaseModel):
-    error: str = Field(..., description="Error message")
-

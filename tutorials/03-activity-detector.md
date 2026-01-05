@@ -160,85 +160,110 @@ detect_activities:
 
 **File**: `tools/activity_detector_tool.py`
 
+⚠️ **IMPORTANT**: This tool uses MediaPipe Tasks API, not the deprecated `solutions` API.
+
+**Prerequisites:**
+- MediaPipe 0.10.31 (only version available for Apple Silicon)
+- Models will be auto-downloaded on first run:
+  - `pose_landmarker_full.task` (~26 MB)
+  - `hand_landmarker.task` (~9 MB)
+
 ```python
+import os
+import urllib.request
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 import cv2
 import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 from typing import List, Dict, Optional
-
-
-class ActivityDetectorInput(BaseModel):
-    """Input for activity detector tool."""
-    video_path: str = Field(..., description="Path to video file")
-    sample_rate: int = Field(5, description="Process every Nth frame")
-
-
-class ActivityDetection(BaseModel):
-    """Single activity detection result."""
-    frame: int
-    timestamp: float
-    activities: List[str]  # e.g., ["standing", "hands_raised"]
-
-
-class ActivityAnomaly(BaseModel):
-    """Activity detection anomaly."""
-    frame: int
-    timestamp: float
-    type: str
-    details: Optional[str] = None
-
-
-class ActivityDetectorResult(BaseModel):
-    """Complete activity detection analysis result."""
-    frames_analyzed: int
-    activities: List[ActivityDetection]
-    activity_summary: Dict[str, int]
-    pose_detections: int
-    hand_detections: int
-    anomalies: List[ActivityAnomaly]
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "frames_analyzed": 100,
-                "activities": [
-                    {
-                        "frame": 1,
-                        "timestamp": 0.03,
-                        "activities": ["standing", "hands_down"]
-                    }
-                ],
-                "activity_summary": {
-                    "standing": 60,
-                    "sitting": 25,
-                    "moving": 15,
-                    "hands_raised": 40,
-                    "hands_down": 60
-                },
-                "pose_detections": 98,
-                "hand_detections": 100,
-                "anomalies": []
-            }
-        }
-
-
-class ActivityDetectorError(BaseModel):
-    """Error response."""
-    error: str
 
 
 class ActivityDetectorTool(BaseTool):
     name: str = "activity_detector"
-    description: str = "Detects human poses, gestures, and activities in video"
+    description: str = "Detects human poses, gestures, and activities in video using MediaPipe Tasks API"
     args_schema: type[BaseModel] = ActivityDetectorInput
     
-    def _run(self, video_path: str, sample_rate: int = 5) -> str:
-        """Analyze video for human activities."""
+    def _ensure_model(self, model_name: str, url: str) -> str:
+        """Download model if not exists."""
+        if not os.path.exists(model_name):
+            print(f"Downloading {model_name}...")
+            urllib.request.urlretrieve(url, model_name)
+            print(f"{model_name} downloaded.")
+        return model_name
+    
+    def _detect_activity_from_pose(self, pose_landmarks) -> List[str]:
+        """Analyze pose landmarks to classify activity."""
+        activities = []
         
-        # Initialize MediaPipe
-        mp_pose = mp.solutions.pose
-        mp_hands = mp.solutions.hands
+        if not pose_landmarks or len(pose_landmarks) == 0:
+            return activities
+        
+        landmarks = pose_landmarks[0]
+        
+        # Get key landmarks (MediaPipe's 33-landmark model)
+        left_shoulder = landmarks[11]
+        right_shoulder = landmarks[12]
+        left_hip = landmarks[23]
+        right_hip = landmarks[24]
+        left_wrist = landmarks[15]
+        right_wrist = landmarks[16]
+        left_knee = landmarks[25]
+        right_knee = landmarks[26]
+        
+        # Calculate average positions
+        shoulder_y = (left_shoulder.y + right_shoulder.y) / 2
+        hip_y = (left_hip.y + right_hip.y) / 2
+        
+        # Detect standing vs sitting based on torso length
+        torso_length = abs(hip_y - shoulder_y)
+        if torso_length > 0.3:
+            activities.append("standing")
+        elif torso_length > 0.15:
+            activities.append("sitting")
+        
+        # Detect hands raised (wrists above shoulders)
+        if left_wrist.y < shoulder_y or right_wrist.y < shoulder_y:
+            activities.append("hands_raised")
+        else:
+            activities.append("hands_down")
+        
+        # Detect movement (knees above hips)
+        if left_knee.y < hip_y or right_knee.y < hip_y:
+            activities.append("moving")
+        
+        return activities
+    
+    def _run(self, video_path: str, sample_rate: int = 5) -> str:
+        """Analyze video for human activities using MediaPipe Tasks API."""
+        
+        # Ensure models are downloaded
+        pose_model = self._ensure_model(
+            'pose_landmarker_full.task',
+            'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task'
+        )
+        
+        hand_model = self._ensure_model(
+            'hand_landmarker.task',
+            'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
+        )
+        
+        # Initialize pose landmarker (NEW Tasks API)
+        pose_options = vision.PoseLandmarkerOptions(
+            base_options=python.BaseOptions(model_asset_path=pose_model),
+            running_mode=vision.RunningMode.VIDEO
+        )
+        pose_landmarker = vision.PoseLandmarker.create_from_options(pose_options)
+        
+        # Initialize hand landmarker (NEW Tasks API)
+        hand_options = vision.HandLandmarkerOptions(
+            base_options=python.BaseOptions(model_asset_path=hand_model),
+            running_mode=vision.RunningMode.VIDEO,
+            num_hands=2
+        )
+        hand_landmarker = vision.HandLandmarker.create_from_options(hand_options)
+        
         
         # Initialize result model
         result = ActivityDetectorResult(
@@ -257,8 +282,7 @@ class ActivityDetectorTool(BaseTool):
             return error.model_dump_json(indent=2)
         
         fps = cap.get(cv2.CAP_PROP_FPS)
-        frame_count = 0
-        analyzed_count = 0
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
         # Activity counters
         activity_counts = {
@@ -270,77 +294,77 @@ class ActivityDetectorTool(BaseTool):
             "unknown": 0
         }
         
-        with mp_pose.Pose(min_detection_confidence=0.5) as pose, \
-             mp_hands.Hands(min_detection_confidence=0.5) as hands:
-            
-            prev_shoulder_y = None
-            
-            try:
-                while True:
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-                    
-                    frame_count += 1
-                    
-                    # Sample frames
-                    if frame_count % sample_rate != 0:
-                        continue
-                    
-                    analyzed_count += 1
-                    timestamp = frame_count / fps if fps > 0 else frame_count
-                    
-                    # Convert to RGB
-                    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    
-                    # Detect pose
-                    pose_results = pose.process(rgb_frame)
-                    hand_results = hands.process(rgb_frame)
-                    
-                    frame_activities = []
-                    
-                    # Analyze pose
-                    if pose_results.pose_landmarks:
-                        result.pose_detections += 1
-                        landmarks = pose_results.pose_landmarks.landmark
-                        
-                        # ...existing code for pose detection...
-                        
-                        frame_activities.append(activity)
-                        activity_counts[activity] += 1
-                    
-                    # Analyze hands
-                    if hand_results.multi_hand_landmarks:
-                        result.hand_detections += len(hand_results.multi_hand_landmarks)
-                        
-                        for hand_landmarks in hand_results.multi_hand_landmarks:
-                            wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
-                            
-                            if wrist.y < 0.5:  # Upper half of frame
-                                frame_activities.append("hands_raised")
-                                activity_counts["hands_raised"] += 1
-                            else:
-                                frame_activities.append("hands_down")
-                                activity_counts["hands_down"] += 1
-                    
-                    # Record activities using Pydantic model
-                    if frame_activities:
-                        result.activities.append(ActivityDetection(
-                            frame=frame_count,
-                            timestamp=round(timestamp, 2),
-                            activities=frame_activities
-                        ))
-                    else:
-                        # No activity detected
-                        activity_counts["unknown"] += 1
-                        result.anomalies.append(ActivityAnomaly(
-                            frame=frame_count,
-                            timestamp=round(timestamp, 2),
-                            type="no_pose_detected"
-                        ))
-            
-            finally:
-                cap.release()
+        frame_idx = 0
+        analyzed_count = 0
+        
+        try:
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                # Sample frames based on sample_rate
+                if frame_idx % sample_rate != 0:
+                    frame_idx += 1
+                    continue
+                
+                analyzed_count += 1
+                timestamp = frame_idx / fps if fps > 0 else frame_idx
+                
+                # Convert to RGB and create MediaPipe Image
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+                
+                # Get timestamp in milliseconds (required for Tasks API)
+                frame_timestamp_ms = int(timestamp * 1000)
+                
+                # Detect pose (NEW Tasks API method)
+                pose_result = pose_landmarker.detect_for_video(mp_image, frame_timestamp_ms)
+                
+                # Detect hands (NEW Tasks API method)
+                hand_result = hand_landmarker.detect_for_video(mp_image, frame_timestamp_ms)
+                
+                frame_activities = []
+                
+                # Track detections
+                if pose_result.pose_landmarks:
+                    result.pose_detections += len(pose_result.pose_landmarks)
+                
+                if hand_result.hand_landmarks:
+                    result.hand_detections += len(hand_result.hand_landmarks)
+                
+                # Analyze activities from pose
+                detected_activities = self._detect_activity_from_pose(pose_result.pose_landmarks)
+                
+                if detected_activities:
+                    frame_activities.extend(detected_activities)
+                    for activity in detected_activities:
+                        activity_counts[activity] = activity_counts.get(activity, 0) + 1
+                
+                # Record activities using Pydantic model
+                if frame_activities:
+                    result.activities.append(ActivityDetection(
+                        frame=frame_idx,
+                        timestamp=round(timestamp, 2),
+                        activities=frame_activities
+                    ))
+                else:
+                    # No activity detected - log anomaly
+                    activity_counts["unknown"] += 1
+                    result.anomalies.append(ActivityAnomaly(
+                        frame=frame_idx,
+                        timestamp=round(timestamp, 2),
+                        type="no_pose_detected",
+                        details="No human pose detected in frame"
+                    ))
+                
+                frame_idx += 1
+        
+        finally:
+            # Cleanup resources (IMPORTANT!)
+            cap.release()
+            pose_landmarker.close()
+            hand_landmarker.close()
         
         result.frames_analyzed = analyzed_count
         result.activity_summary = activity_counts
@@ -350,18 +374,22 @@ class ActivityDetectorTool(BaseTool):
 
 **What this does:**
 - Uses **Pydantic models** for type-safe results
-- Uses **MediaPipe Pose** for body skeleton detection
-- Uses **MediaPipe Hands** for hand tracking
+- Uses **MediaPipe Tasks API** for pose and hand detection
+- **Auto-downloads models** on first run (~35 MB total)
 - Classifies poses: standing/sitting/moving
 - Detects hand positions: raised/lowered
-- Tracks movement between frames
+- Tracks activity statistics across frames
+- Logs anomalies when no pose detected
+- **Proper cleanup** with landmarker.close()
 
 **Key techniques:**
-- **Landmark detection**: 33 body points tracked
+- **Model bundles**: Pose detection + landmarking in single file
+- **Landmark detection**: 33 body points + 21 hand points tracked
 - **Geometric analysis**: Torso length indicates pose
-- **Motion detection**: Compare frames for movement
-- **Hand position**: Y-coordinate determines raised/lowered
+- **Motion detection**: Knee position indicates movement
+- **Hand position**: Y-coordinate relative to shoulders
 - **Type safety**: Pydantic validates all data
+- **Resource management**: Proper cleanup of video and landmarkers
 
 ### Step 2: Create the Agent
 
@@ -506,10 +534,33 @@ python tests/test_activity_agent.py
 ## 🐛 Troubleshooting
 
 ### Error: "No module named 'mediapipe'"
-**Fix**: Install MediaPipe
+**Fix**: Install MediaPipe 0.10.31
 ```bash
-pip install mediapipe
+pip install mediapipe==0.10.31
 ```
+
+### Error: "Cannot find reference 'solutions'"
+**Cause**: Using deprecated `mp.solutions` API  
+**Fix**: Use MediaPipe Tasks API as shown in this tutorial
+```python
+# ❌ Don't use
+mp_pose = mp.solutions.pose
+
+# ✅ Use instead
+from mediapipe.tasks.python import vision
+landmarker = vision.PoseLandmarker.create_from_options(options)
+```
+
+### Error: "Model file not found"
+**Cause**: Model not downloaded  
+**Fix**: The `_ensure_model()` method auto-downloads. Ensure:
+- Internet connection available
+- Write permissions in working directory
+- ~35 MB free space for both models
+
+### Error: "ImportError: cannot import name 'solutions'"
+**Cause**: MediaPipe 0.10.30+ doesn't have `solutions` module  
+**Fix**: This is expected! Use Tasks API throughout
 
 ### Low detection rate
 **Causes**:
@@ -517,13 +568,19 @@ pip install mediapipe
 - Partial body visibility
 - Person too far from camera
 
-**Fix**: Use videos with full-body visibility
+**Fix**: Use videos with full-body visibility and good lighting
 
 ### "No pose detected" anomalies
 **Normal**: Happens when:
 - Person leaves frame
 - Back turned to camera
 - Body partially occluded
+- Fast movement (motion blur)
+
+**Not normal**: If > 50% frames have no detection, check:
+- Video quality
+- Camera angle
+- Lighting conditions
 
 ### Slow processing
 **Fix**: Increase sample_rate
@@ -532,13 +589,72 @@ pip install mediapipe
 Use the activity_detector tool with sample_rate=20
 ```
 
-## 💡 Understanding MediaPipe
+**Alternative**: Use lighter model
+```python
+# In _ensure_model() call
+pose_model = self._ensure_model(
+    'pose_landmarker_lite.task',  # Faster but less accurate
+    'https://...pose_landmarker_lite...'
+)
+```
+
+### Memory issues
+**Cause**: Processing too many frames  
+**Fix**: 
+- Increase sample_rate (process fewer frames)
+- Process shorter video segments
+- Close landmarkers after use (already implemented)
+
+## 💡 Understanding MediaPipe Tasks API
+
+### ⚠️ Important: API Migration
+
+MediaPipe **deprecated the `solutions` API** in version 0.10.30+. The new **Tasks API** is required for:
+- Apple Silicon (macOS ARM64) compatibility
+- Modern MediaPipe features
+- Better performance
+
+**Old API (DEPRECATED):**
+```python
+# ❌ This no longer works on Apple Silicon
+mp_pose = mp.solutions.pose
+pose = mp_pose.Pose()
+results = pose.process(frame)
+```
+
+**New API (REQUIRED):**
+```python
+# ✅ Use this instead
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
+
+options = vision.PoseLandmarkerOptions(...)
+landmarker = vision.PoseLandmarker.create_from_options(options)
+result = landmarker.detect_for_video(mp_image, timestamp_ms)
+```
+
+### Model Bundles
+
+MediaPipe pose landmarker models (`.task` files) include:
+1. **Pose Detection Model** - Finds human bodies in frames
+2. **Pose Landmarker Model** - Predicts 33 3D landmarks per body
+
+Both packaged together based on:
+- **BlazePose** architecture (CNN similar to MobileNetV2)
+- **GHUM** pipeline (3D human shape modeling)
+
+**Available models:**
+- `pose_landmarker_lite.task` (~12 MB) - Fastest, basic accuracy
+- `pose_landmarker_full.task` (~26 MB) - **Recommended balance**
+- `pose_landmarker_heavy.task` (~50 MB) - Slowest, highest accuracy
 
 ### Pose Landmarks
 MediaPipe detects 33 body points:
-- **Face**: nose, eyes, ears
-- **Upper body**: shoulders, elbows, wrists
-- **Lower body**: hips, knees, ankles
+- **Face**: nose, eyes, ears (indices 0-10)
+- **Upper body**: shoulders (11-12), elbows (13-14), wrists (15-16)
+- **Hands**: pinky, index, thumb (17-22)
+- **Lower body**: hips (23-24), knees (25-26), ankles (27-28)
+- **Feet**: heel, foot index (29-32)
 
 ### How Pose Classification Works
 
@@ -550,13 +666,33 @@ if torso_length > 0.3:  # Standing
 # Sitting: Torso is compressed (small distance)
 if torso_length < 0.15:  # Sitting
 
-# Moving: Shoulder position changes between frames
-if abs(current_y - previous_y) > threshold:  # Moving
+# Moving: Knee position indicates leg movement
+if left_knee.y < hip_y or right_knee.y < hip_y:  # Moving
 ```
 
 ### Hand Detection
-- **Wrist Y < 0.5**: Hand in upper half (raised)
-- **Wrist Y > 0.5**: Hand in lower half (down)
+
+Hand landmarker detects 21 landmarks per hand:
+- **Wrist** (index 0)
+- **Thumb** (indices 1-4)
+- **Fingers** (indices 5-20)
+
+**Hand position detection:**
+- **Wrist Y < shoulder Y**: Hand raised
+- **Wrist Y > shoulder Y**: Hand down
+
+### Key Differences: Old vs New API
+
+| Aspect | Old (solutions) | New (Tasks) |
+|--------|----------------|-------------|
+| **Import** | `mp.solutions.pose` | `vision.PoseLandmarker` |
+| **Initialize** | `Pose()` | `create_from_options()` |
+| **Process** | `pose.process(frame)` | `landmarker.detect_for_video(mp_image, timestamp_ms)` |
+| **Image format** | NumPy array (BGR) | `mp.Image` (RGB) |
+| **Timestamp** | Not required | Milliseconds required |
+| **Models** | Auto-loaded | Manual download required |
+| **Cleanup** | Context manager | Call `.close()` |
+| **Result** | `pose_landmarks` | `pose_landmarks` (same structure) |
 
 ## ✅ Verification Checklist
 

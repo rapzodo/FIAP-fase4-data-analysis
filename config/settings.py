@@ -1,11 +1,16 @@
 import os
+
 from dotenv import load_dotenv
+
+from tools.activity_detection_tool import MediaPipeModel
 
 load_dotenv()
 
 VIDEO_PATH = os.getenv("VIDEO_PATH")
 
 FRAME_SAMPLE_RATE = os.getenv("FRAME_SAMPLE_RATE")
+
+POSE_MODEL = MediaPipeModel.LITE.name
 
 OUTPUT_PATH = "output"
 

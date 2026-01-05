@@ -1,6 +1,8 @@
 import yaml
 from crewai import Agent
+
 from config.llm_config import llm_config
+
 
 class AgentsFactory:
 

@@ -1,36 +1,27 @@
 analyze_facial_detection:
   description: |
-    analyze the video at '{video_path}' for faces and emotions.
-    use facial_detection_tool with sample_rate={frame_sample_rate}.
+    Analyze the video at '{video_path}' for faces and emotions using facial_detection tool with sample_rate={frame_sample_rate}.
     
-    Output:
-    1. Total frames analyzed
-    2. Faces detected with timeframe
-    3. Emotion distribution (happy, sad, angry, neutral, surprise, fear, disgust)
-    4. confidence scores
-    5. Anomalies detected (no face, low confidence, not a human)
-    
-    Format as structured data report with statistics
-  expected_output: "Facial and emotion detection and data analysis and statistics"
+    If tool fails, report the error and stop. Only provide results based on actual tool output.
+
+  expected_output: "Complete facial and emotion detection analysis with statistics"
   agent: facial_emotions_analyzer
   output_pydantic: FacialAnalysisOutput
+  output_file: "facial_analysis_output.md"
+  max_retries: 3
 
 detect_activities:
   description: |
     Analyze the video at '{video_path}' for human activities, poses and gestures.
-    Use activity_detector_tool with sample_rate={frame_sample_rate}.
+    Use activity_detection tool with: video_path='{video_path}', media_pipe_model='FULL', sample_rate={frame_sample_rate}
     
-    Identify:
-    1. Total frames analyzed
-    2. Activities detected (playing, running, jumping, etc)
-    3. poses detected (standing, sitting, laying, crouching, etc)
-    4. hand gestures (raised, waiving)
-    5. Activity timelines with timestamps
-    6. Anomalies detected (no poses, no human)
+    If tool fails, report the error and stop. Only provide results based on actual tool output.
 
-  expected_output: "Activity detection analysis with pose, gestures and timeline"
+  expected_output: "Complete activity detection analysis with poses, gestures and timelines"
   agent: activity_detector
   output_pydantic: ActivityAnalysisOutput
+  output_file: "activity_analysis_output.md"
+  max_retries: 3
 
 generate_summary:
   description: |

@@ -9,7 +9,7 @@ from numpy import ndarray
 from models import (
     EmotionDetectionInput,
     EmotionScores, FaceEmotion, EmotionDetectionResult,
-    FacialDetectionError, FaceDetection, EmotionAnomaly
+    ExecutionError, FaceDetection, EmotionAnomaly
 )
 from models.emotion_detection_models import EMOTIONS
 
@@ -20,8 +20,6 @@ class EmotionDetectionTool(BaseTool):
     args_schema: type[EmotionDetectionInput] = EmotionDetectionInput
 
     def _run(self, video_path: str, face_detections: str) -> str:
-
-
         result = EmotionDetectionResult(
             total_faces_analyzed=0,
             emotions_detected=[],
@@ -31,7 +29,7 @@ class EmotionDetectionTool(BaseTool):
 
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
-            return FacialDetectionError(error="Unable to open video file").model_dump_json(indent=2)
+            return ExecutionError(error="Unable to open video file").model_dump_json(indent=2)
 
         emotions_count = {}
         # ##initialize the counter
@@ -112,11 +110,11 @@ class EmotionDetectionTool(BaseTool):
                         self.create_anomaly(face=face, anomaly_type="Low confidence"))
             except Exception as e:
                 anomalies_detected.append(self.create_anomaly(face, "Emotion detection failed",
-                                                              FacialDetectionError(error=str(e))))
+                                                              ExecutionError(error=str(e))))
         return face_emotion, emotions_count, anomalies_detected
 
     @staticmethod
-    def create_anomaly(face, anomaly_type: str, error: Optional[FacialDetectionError] = None):
+    def create_anomaly(face, anomaly_type: str, error: Optional[ExecutionError] = None):
         return EmotionAnomaly(
             frame=face.frame,
             timestamp=face.timestamp,

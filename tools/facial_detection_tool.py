@@ -10,20 +10,20 @@ from models import (
     FaceDetectionInput,
     FaceDetection,
     FacialDetectionResult,
-    FacialDetectionError,
+    ExecutionError,
     FaceLocation
 )
 
 
 class FacialDetectionTool(BaseTool):
-    name: str = "facial detection"
+    name: str = "facial_detection"
     description: str = "Detects faces in videos"
     args_schema: type[FaceDetectionInput] = FaceDetectionInput
 
     def _run(self, video_path: str, sample_rate: int = 5):
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
-            return FacialDetectionError(error=f"Unable to open video {video_path}").model_dump_json(indent=2)
+            return ExecutionError(error=f"Unable to open video {video_path}").model_dump_json(indent=2)
 
         try:
             result = self.process_face_detection(cap, sample_rate)

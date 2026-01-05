@@ -3,7 +3,7 @@ from typing import List, Optional, Dict
 
 from pydantic import BaseModel, Field
 
-from models import FacialDetectionError, FaceDetection
+from models import FaceDetection, ExecutionError
 
 
 class EMOTIONS(Enum):
@@ -48,7 +48,7 @@ class FaceEmotion(BaseAnalyticsDataModel):
 class EmotionAnomaly(BaseAnalyticsDataModel):
     type: str = Field(..., description="Type of anomaly")
     confidence: Optional[float] = Field(None, ge=0, le=100)
-    error: Optional[FacialDetectionError] = Field(None, description="Error message")
+    error: Optional[ExecutionError] = Field(None, description="Error message")
 
 
 class EmotionDetectionResult(BaseModel):
