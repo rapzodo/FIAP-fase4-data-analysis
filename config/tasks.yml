@@ -1,78 +1,144 @@
-analyze_facial_detection:
+detect_emotions:
   description: |
-    Analyze the video at '{video_path}' for faces and emotions using facial_detection tool with sample_rate={frame_sample_rate}.
-    
-    If tool fails, report the error and stop. Only provide results based on actual tool output.
-
-  expected_output: "Complete facial and emotion detection analysis with statistics"
-  agent: facial_emotions_analyzer
-  output_pydantic: FacialAnalysisOutput
-  output_file: "facial_analysis_output.md"
-  max_retries: 3
+    Execute the emotion_detection tool with video_path='{video_path}' frame_rate='{frame_rate}' and return results.
+  expected_output: |
+    A JSON file containing the results of the tool execution
+  agent: emotions_detector
+  output_file: "/analysis_results/facial_analysis_output.json"
+  tools:
+    - emotion_detection
 
 detect_activities:
   description: |
-    Analyze the video at '{video_path}' for human activities, poses and gestures.
-    Use activity_detection tool with: video_path='{video_path}', media_pipe_model='FULL', sample_rate={frame_sample_rate}
-    
-    If tool fails, report the error and stop. Only provide results based on actual tool output.
-
-  expected_output: "Complete activity detection analysis with poses, gestures and timelines"
+    Execute the activity_detection tool with video_path='{video_path}' frame_rate='{frame_rate}' and media_pipe_model='{pose_model}' then return results.
+  expected_output: |
+    A JSON file containing the results of the tool execution
   agent: activity_detector
-  output_pydantic: ActivityAnalysisOutput
-  output_file: "activity_analysis_output.md"
-  max_retries: 3
+  output_file: "/analysis_results/activity_analysis_output.json"
+  tools:
+    - activity_detection
 
-generate_summary:
+generate_emotions_report:
   description: |
-    Create a comprehensive summary report based on data analysis aggregated.
+    Aggregate the face emotions detection data and create a statistic report.
+    Use timestamps to create a timeline for face emotions detected
+  expected_output: |
+    A structured markdown report as the following example:
+    ##Summary
+      The EMOTION detection data analysis report provides an overview of the activities detected in the video. The summary section highlights the most common activities, including "left_arm_open", "standing", and "hands_raised".
+      
+      #Processing statistics
+      * Frames analyzed: 111
+      * Success rate: 92% (calculated based on the number of frames analyzed and the accuracy of activity detection)
     
-    include these sections:
+    #Emotion detection results
+    ### emotion breakdown with percentages
+      
+      | Emotion | Percentage |
+      | --- | --- |
+      | sad | 29.2% |
+      | happy | 57.7% |
+      | fear | 20.6% |
+      | ... | ... |
     
-    ##Executive summary
-    - Overview in 3-4 sentences
-    - key findings
+    ### Emotions patterns
+      The most common emotion pattern detected is "happy", which accounts for approximately 58% of the total frames analyzed.
     
-    #Processing statistics
-    - frames analyzed
-    - success rates
-    - processing efficiency
+    #Activities timeline
+    Here is a detailed timeline of emotions based on timestamps:
+      
+      | Timestamp | Activity |
+      | --- | --- |
+      | 00:20:33 | fear, sad |
+      | 00:35.00 | happy |
+      | ... | ... |
     
-    #Facial recognition results
-    - Detection rate
-    - Emotion distribution with percentages
-    - Confidence metrics
+    Note: The timestamp format can be adjusted to provide more detail.
+    
+    #Key insights
+      * Top 3 emotions:
+          1. happy (57.7%)
+          2. sad (29.2%)
+          3. fear (20.6%)
+      * Notable observations:
+          + The majority of the video is spent in a standing position.
+          + There are several instances of happy emotion, which may indicate a good mood and a sense of happiness.
+
+  agent: emotions_report_writer
+  output_file: "/reports/emotions-report.md"
+  markdown: true
+  context:
+    - detect_emotions
+
+generate_activities_report:
+  description: |
+    Aggregate the activities detection data and create a statistic report.
+    Use timestamps to create a timeline for activities detected"
+  expected_output: |
+    A structured markdown report as the following example:
+    ##Summary
+      The ACTIVITY detection data analysis report provides an overview of the activities detected in the video. The summary section highlights the most common activities, including "left_arm_open", "standing", and "hands_raised".
+    
+      #Processing statistics
+      * Frames analyzed: 111
+      * Success rate: 92% (calculated based on the number of frames analyzed and the accuracy of activity detection)
     
     #Activity detection results
-    - Activity breakdown with percentages
-    - Movements patterns
-    - Poses breakdown with percentages
-    - Hand gestures analysis
+    ### Activity breakdown with percentages
     
-    #Anomaly Report
-    - Total anomalies
-    - Types and frequencies
-    - Impact assessment
+      | Activity | Percentage |
+      | --- | --- |
+      | left_arm_open | 29.2% |
+      | standing | 57.7% |
+      | hands_raised | 20.6% |
+      | right_arm_open | 4.5% |
+      | hands_down | 3.6% |
     
-    #key insights
-    - top 5 expressions
-    - top 5 activities (based on frequency)
-    - Patterns and correlations
-    - Notable observations
+    ### Movements patterns
+      The most common movement pattern detected is "standing", which accounts for approximately 58% of the total frames analyzed.
+    
+    ### Hand gestures analysis
+      The most common hand gesture detected is "left_arm_open", which accounts for approximately 29% of the total frames analyzed.
+    
+      #Anomaly Report
+      * Total anomalies: 47
+      * Types and frequencies:
+          + Unknown: 47
+    
+    #Activities timeline
+    Here is a detailed timeline of activities based on timestamps:
+    
+      | Timestamp | Activity |
+      | --- | --- |
+      | 6000.0 | left_arm_open, standing |
+      | 7000.0 | hands_raised, standing |
+      | ... | ... |
+    
+    Note: The timestamp format can be adjusted to provide more detail.
+    
+    #Key insights
+      * Top 3 activities:
+          1. Standing (57.7%)
+          2. Left arm open (29.2%)
+          3. Hands raised (20.6%)
+      * Notable observations:
+          + The majority of the video is spent in a standing position.
+          + There are several instances of left arm being opened, which may indicate a specific action or gesture.
   
-    Format in clean markdown with clear headings and bullet points
-  expected_output: "Comprehensive markdown summary report with all sections"
-  agent: summarizer
-  output_file: "summary-report.md"
+
+  agent: activities_report_writer
+  markdown: true
+  output_file: "/reports/activity-report.md"
   context:
-    - analyze_facial_detection
     - detect_activities
 
 translate_report:
   description: |
-    Translate the summary report to {language}
-  expected_output: "A precise 1:1 translated report"
+    translate the emotion detection and activity detection report to {language} language.
+  expected_output: "A {language} translated markdown document of both reports"
   agent: translator
-  output_file: "'{language}'-summary-report.md"
+  markdown: true
+  output_file: "summary/{language}-summary-report.md"
   context:
-    - generate_summary
+    - generate_emotions_report
+    - generate_activities_report

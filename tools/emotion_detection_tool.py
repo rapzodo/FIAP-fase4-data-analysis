@@ -1,145 +1,85 @@
-import json
-from typing import List, Optional, Any
+import datetime
 
 import cv2
 from crewai.tools import BaseTool
 from deepface import DeepFace
-from numpy import ndarray
+from pydantic.v1 import BaseModel
+from tqdm import tqdm
 
 from models import (
-    EmotionDetectionInput,
-    EmotionScores, FaceEmotion, EmotionDetectionResult,
-    ExecutionError, FaceDetection, EmotionAnomaly
+    ExecutionError
 )
-from models.emotion_detection_models import EMOTIONS
+from models.base_models import BaseInputModel, DetectionStatistics, DetectionToolOutput
 
 
 class EmotionDetectionTool(BaseTool):
     name: str = "emotion_detection"
-    description: str = "Analyzes emotions in pre detected faces. Requires facial detection tools inputs"
-    args_schema: type[EmotionDetectionInput] = EmotionDetectionInput
+    description: str = "Analyzes emotions in faces detected in video. Requires video_path (string) parameter. Returns JSON with total_faces_analyzed, emotions_detected array, emotion_summary, and anomalies."
+    args_schema: type[BaseModel] = BaseInputModel
 
-    def _run(self, video_path: str, face_detections: str) -> str:
-        result = EmotionDetectionResult(
-            total_faces_analyzed=0,
-            emotions_detected=[],
-            emotion_summary={},
-            anomalies=[]
+    def _run(self, video_path: str, frame_rate:int) -> str:
+        statistics = DetectionToolOutput(
+            emotion_statistics=[]
         )
 
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             return ExecutionError(error="Unable to open video file").model_dump_json(indent=2)
 
-        emotions_count = {}
+        emotions_summary : dict[str, DetectionStatistics] = {}
         # ##initialize the counter
-        for emotion in EMOTIONS:
-            emotions_count[emotion.name.lower()] = 0
-
-        faces_by_frame = self.group_faces_by_frame(face_detections)
-
+        total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        frame_number = 0
         try:
-            for frame_number, faces in faces_by_frame.items():
-                # skipping frames without faces for efficiency
-                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number-1)
+            for _ in tqdm(range(int(total_frames)), desc="Analyzing emotions"):
                 ret, frame = cap.read()
+
                 if not ret:
-                    result.anomalies.extend(self.create_unknown_anomalies(faces))
+                    break
+
+                """
+                frame sampling mechanism for improved performance. 
+                Useful for activity detection where analyzing every single frame may be unnecessary and processing-intensive.
+                """
+                if frame_number % frame_rate != 0:
+                    frame_number += 1
                     continue
 
-                face_emotion, emotions_count, anomalies_detected = self.detect_emotions(faces, emotions_count, frame)
-                result.emotions_detected.append(face_emotion)
-                result.total_faces_analyzed += 1
-                result.anomalies.extend(anomalies_detected)
+                analysis_result = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
+                timestamp = cap.get(cv2.CAP_PROP_POS_MSEC)
+                for face in analysis_result:
+                    dominant_emotion = face["dominant_emotion"]
+                    face_confidence = face["face_confidence"]
+                    if face_confidence == 0.0:
+                        continue
+                    if dominant_emotion and face_confidence < 0.3:
+                        emotions_summary["anomaly"] = emotions_summary.get("anomaly", DetectionStatistics(
+                            emotion="anomaly",
+                            total_fames_appearances=0,
+                            timestamps=[],
+                        ))
+                        emotions_summary["anomaly"].total_fames_appearances+=1
+                        emotions_summary["anomaly"].timestamps.append(format_frame_timestamp(timestamp))
+                        continue
+
+
+                    emotions_summary[dominant_emotion] = emotions_summary.get(dominant_emotion, DetectionStatistics(
+                        emotion=dominant_emotion,
+                        total_fames_appearances=0,
+                        timestamps=[],
+                    ))
+
+                    emotions_summary[dominant_emotion].total_fames_appearances+=1
+                    emotions_summary[dominant_emotion].timestamps.append(format_frame_timestamp(timestamp))
+
+                frame_number += 1
+        except Exception as e:
+            ExecutionError(error=str(e)).model_dump_json(indent=2)
         finally:
             cap.release()
-        result.emotion_summary = emotions_count
-        return result.model_dump_json(indent=2)
+        statistics.emotion_statistics = list(emotions_summary.values())
+        return statistics.model_dump_json(indent=2)
 
 
-    def detect_emotions(self, faces, emotions_count: dict[str, int], current_frame: ndarray[int]) -> tuple[
-        FaceEmotion | None, dict[str, int], list[Any]
-    ]:
-        anomalies_detected = []
-        face_emotion = None
-        for face in faces:
-            top, right, bottom, left = face.location.top, face.location.right, face.location.bottom, face.location.left
-            face_image = current_frame[top:bottom, left:right]
-            if face_image.size == 0:
-                anomalies_detected.append(self.create_anomaly(face=face, anomaly_type="Invalid Face Region"))
-                continue
-            try:
-                analysis = DeepFace.analyze(
-                    face_image,
-                    actions=['emotion'],
-                    enforce_detection=False,
-                    silent=True
-                )
-                if isinstance(analysis, list):
-                    analysis = analysis[0]
-
-                dominant_emotion = analysis["dominant_emotion"]
-                analysis_emotion = analysis["emotion"]
-                confidence = max(analysis_emotion.values())
-                emotion_score = EmotionScores(
-                    angry=round(analysis_emotion.get(EMOTIONS.ANGRY.name.lower(), 0), 2),
-                    disgust=round(analysis_emotion.get(EMOTIONS.DISGUST.name.lower(), 0), 2),
-                    fear=round(analysis_emotion.get(EMOTIONS.FEAR.name.lower(), 0), 2),
-                    happy=round(analysis_emotion.get(EMOTIONS.HAPPY.name.lower(), 0), 2),
-                    sad=round(analysis_emotion.get(EMOTIONS.SAD.name.lower(), 0), 2),
-                    surprise=round(analysis_emotion.get(EMOTIONS.SURPRISE.name.lower(), 0), 2),
-                    neutral=round(analysis_emotion.get(EMOTIONS.NEUTRAL.name.lower(), 0), 2),
-                )
-
-                face_emotion = FaceEmotion(
-                    frame=face.frame,
-                    timestamp=face.timestamp,
-                    face_id=face.face_id,
-                    dominant_emotion=dominant_emotion,
-                    confidence=round(confidence, 2),
-                    emotion_score=emotion_score,
-                )
-
-                if dominant_emotion not in [emotion.name.lower() for emotion in EMOTIONS]:
-                    anomalies_detected.append(self.create_anomaly(face=face, anomaly_type="Invalid Emotion"))
-
-                emotions_count[dominant_emotion] += 1
-
-                if confidence < 50:
-                    anomalies_detected.append(
-                        self.create_anomaly(face=face, anomaly_type="Low confidence"))
-            except Exception as e:
-                anomalies_detected.append(self.create_anomaly(face, "Emotion detection failed",
-                                                              ExecutionError(error=str(e))))
-        return face_emotion, emotions_count, anomalies_detected
-
-    @staticmethod
-    def create_anomaly(face, anomaly_type: str, error: Optional[ExecutionError] = None):
-        return EmotionAnomaly(
-            frame=face.frame,
-            timestamp=face.timestamp,
-            face_id=face.face_id,
-            type=anomaly_type,
-            error=error,
-        )
-
-    @staticmethod
-    def create_unknown_anomalies(faces) -> List[EmotionAnomaly]:
-        return list(map(lambda face: EmotionAnomaly(
-            frame=face.frame,
-            timestamp=face.timestamp,
-            face_id=face.face_id,
-            type=EMOTIONS.UNKNOWN.name
-        ), faces))
-
-    @staticmethod
-    def group_faces_by_frame(face_locations: str):
-        face_detections_json = json.loads(face_locations)
-        face_detections = [FaceDetection(**face_detection) for face_detection in face_detections_json]
-        faces_by_frame = {}
-        for face in face_detections:
-            frame = face.frame
-            if frame not in faces_by_frame:
-                faces_by_frame[frame] = []
-            faces_by_frame[frame].append(face)
-        return faces_by_frame
+def format_frame_timestamp(timestamp: float) -> str:
+    return str(datetime.timedelta(milliseconds=timestamp))

@@ -1,7 +1,7 @@
+import datetime
 import os
 import urllib
 from enum import Enum
-from pathlib import Path
 
 import cv2
 import mediapipe as mp
@@ -15,7 +15,9 @@ from mediapipe.tasks.python.vision.pose_landmarker import PoseLandmarkerOptions,
 
 from models import ExecutionError
 from models.activity_detection_models import ActivityDetectionInput, ActivityDetectionResult, BodyLandmarks, \
-    ActivityDetection, ActivityAnomaly
+    Activity
+from models.base_models import DetectionStatistics, DetectionToolOutput
+from tools.emotion_detection_tool import format_frame_timestamp
 
 MEDIA_PIPE_MODEL_BASE_URL = "https://storage.googleapis.com/mediapipe-models/"
 
@@ -29,42 +31,50 @@ class MediaPipeModel(Enum):
 
 class ActivityDetectionTool(BaseTool):
     name: str = "activity_detection"
-    description: str = "Detects human activities, poses, and gestures in videos using MediaPipe. Requires video_path (string), media_pipe_model (string: 'LITE', 'FULL', or 'HEAVY'), and sample_rate (integer)."
+    description: str = "Detects human activities, poses, and gestures in videos using MediaPipe. Requires video_path (string), media_pipe_model (string: 'LITE', 'FULL', or 'HEAVY'), and frame_rate (integer). Returns JSON with frames_analyzed, detections array, activity_summary, pose_detections, hands_detections, and anomalies."
     args_schema: type[ActivityDetectionInput] = ActivityDetectionInput
 
-    def detect_activity_from_pose(self, pose_landmarks: list[list[NormalizedLandmark]]):
-        activities = []
+    def detect_activity_from_pose(self, pose_landmarks: list[list[NormalizedLandmark]]) -> Activity|None:
         if not pose_landmarks or len(pose_landmarks) == 0:
-            return activities
+            return None
 
         landmarks = pose_landmarks[0]
 
         body_landmarks = BodyLandmarks(landmarks)
-
-        activities.append(self.detect_standing_or_sitting(body_landmarks))
-        activities.append(self.detect_hand_position(body_landmarks))
-        activities.append(self.detect_body_movement(body_landmarks))
-        return activities
+        return Activity(
+            hands_activity=self.detect_hand_position(body_landmarks),
+            movement_activity=self.detect_body_movement(body_landmarks),
+        )
 
     def detect_standing_or_sitting(self, body_landmarks: BodyLandmarks):
         shoulder_y, hip_y = self.calculate_average_position(body_landmarks)
         torso_length = abs(hip_y - shoulder_y)
-        if torso_length < 0.3:
-            return "standing"
-        elif torso_length < 0.15:
+        if torso_length < 0.15:
             return "sitting"
-        return "unknown"
+        return self.detect_body_movement(body_landmarks)
 
     def detect_hand_position(self, body_landmarks: BodyLandmarks):
         shoulder_y, hip_y = self.calculate_average_position(body_landmarks)
-        if body_landmarks.left_wrist.y < shoulder_y or body_landmarks.right_wrist.y < shoulder_y:
+        left_arm_open = body_landmarks.left_wrist.x > body_landmarks.left_elbow.x
+        right_arm_open = body_landmarks.right_wrist.x < body_landmarks.right_elbow.x
+        hands_raised = body_landmarks.left_wrist.y < shoulder_y or body_landmarks.right_wrist.y < shoulder_y
+        if hands_raised:
             return "hands_raised"
+        elif left_arm_open:
+            return "left_arm_open"
+        elif right_arm_open:
+            return "right_arm_open"
+        elif right_arm_open and left_arm_open:
+            return "both_arms_open"
         else:
             return "hands_down"
 
+
     def detect_body_movement(self, body_landmarks: BodyLandmarks):
         shoulder_y, hip_y = self.calculate_average_position(body_landmarks)
-        if body_landmarks.left_knee.y < hip_y or body_landmarks.right_knee.y < hip_y:
+        # if body_landmarks.left_knee.y < hip_y or body_landmarks.right_knee.y < hip_y:
+
+        if body_landmarks.left_knee.y > hip_y > body_landmarks.right_knee.y and body_landmarks.right_wrist.y > shoulder_y > body_landmarks.left_wrist.y:
             return "moving"
         else:
             return "standing"
@@ -92,52 +102,33 @@ class ActivityDetectionTool(BaseTool):
 
         return model_path
 
-    def _run(self, video_path, media_pipe_model: str, sample_rate: int = 5) -> str:
-        # Get project root (parent of tools directory) and resolve video path
-        project_root = Path(__file__).parent.parent
-        video_path = str(project_root / video_path)
-
+    def _run(self, video_path, media_pipe_model: str, frame_rate: int = 5) -> str:
         pose_model = self.download_model(MediaPipeModel[media_pipe_model])
-        hands_model = self.download_model(MediaPipeModel.HANDS)
 
         pose_options = PoseLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=pose_model),
+            min_pose_detection_confidence=0.8,
+            min_tracking_confidence=0.8,
+            min_pose_presence_confidence=0.8,
             running_mode=vision.RunningMode.VIDEO,
         )
         pose_landmarker = PoseLandmarker.create_from_options(pose_options)
 
-        hand_options = HandLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=hands_model),
-            running_mode=vision.RunningMode.VIDEO,
-            num_hands=2
-        )
-
-        hands_landmarker = HandLandmarker.create_from_options(hand_options)
-
         result = ActivityDetectionResult(
             frames_analyzed=0,
-            activities=[],
+            detections=[],
             activity_summary={},
             pose_detections=0,
-            hands_detections=0,
-            anomalies=[]
+            error=None
         )
         cap = cv2.VideoCapture(video_path)
 
         if not cap.isOpened():
             return ExecutionError(error=f"Unable to open video source {video_path}.").model_dump_json(indent=2)
 
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        activity_counter = {}
 
-        activity_counter = {
-            "standing":0,
-            "sitting":0,
-            "hands_raised":0,
-            "hands_down":0,
-            "moving":0,
-            "unknown":0
-        }
+        activity_stats = {}
 
         frame_number = 0
         analyzed_counter = 0
@@ -153,21 +144,17 @@ class ActivityDetectionTool(BaseTool):
                 frame sampling mechanism for improved performance. 
                 Useful for activity detection where analyzing every single frame may be unnecessary and processing-intensive.
                 """
-                if frame_number % sample_rate != 0:
+                if frame_number % frame_rate != 0:
                     frame_number += 1
                     continue
 
                 analyzed_counter += 1
-                timestamp = frame_number / fps if fps > 0 else frame_number
+                timestamp = cap.get(cv2.CAP_PROP_POS_MSEC)
 
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
 
-                frame_timestamp_ms = int(timestamp * 1000)
-
-                pose_result = pose_landmarker.detect_for_video(mp_image, frame_timestamp_ms)
-
-                hands_result = hands_landmarker.detect_for_video(mp_image, frame_timestamp_ms)
+                pose_result = pose_landmarker.detect_for_video(mp_image, int(timestamp))
 
                 frame_activities = []
 
@@ -175,42 +162,75 @@ class ActivityDetectionTool(BaseTool):
                 if pose_result.pose_landmarks:
                     result.pose_detections += len(pose_result.pose_landmarks)
 
-                if hands_result.hand_landmarks:
-                    result.hands_detections += len(hands_result.hand_landmarks)
-
                 #analyze activities from pose
-                detected_activities = self.detect_activity_from_pose(pose_result.pose_landmarks)
+                detected_activity = self.detect_activity_from_pose(pose_result.pose_landmarks)
 
-                if detected_activities:
-                    frame_activities.extend(detected_activities)
-                    for activity in detected_activities:
-                        activity_counter[activity] += 1
+                if detected_activity:
+                    frame_activities.append(detected_activity)
+                    activity_counter[detected_activity.hands_activity] = activity_counter.get(detected_activity.hands_activity, 0) + 1
+                    activity_counter[detected_activity.movement_activity] = activity_counter.get(detected_activity.movement_activity, 0) + 1
 
-                if frame_activities:
-                    result.activities.append(ActivityDetection(
-                        frame = frame_number,
-                        timestamp = round(timestamp, 2),
-                        activities=frame_activities
+                    activity_stats[detected_activity.hands_activity] = activity_stats.get(detected_activity.hands_activity, DetectionStatistics(
+                        emotion=detected_activity.hands_activity,
+                        total_fames_appearances=0,
+                        timestamps=[],
                     ))
+                    activity_stats[detected_activity.hands_activity].total_fames_appearances += 1
+                    activity_stats[detected_activity.hands_activity].timestamps.append(format_frame_timestamp(timestamp))
+
+                    activity_stats[detected_activity.movement_activity] = activity_stats.get(detected_activity.movement_activity, DetectionStatistics(
+                        emotion=detected_activity.movement_activity,
+                        total_fames_appearances=0,
+                        timestamps=[],
+                    ))
+                    activity_stats[detected_activity.movement_activity].total_fames_appearances += 1
+                    activity_stats[detected_activity.movement_activity].timestamps.append(format_frame_timestamp(timestamp))
+
+
+                # if frame_activities:
+                #     result.detections.append(ActivityDetection(
+                #         frame = frame_number,
+                #         timestamp =self.format_timestamp(timestamp),
+                #         activities=frame_activities
+                #     ))
                 else:
-                    activity_counter["unknown"] += 1
-                    result.anomalies.append(ActivityAnomaly(
-                        frame = frame_number,
-                        timestamp = round(timestamp, 2),
-                        type="No pose detected",
-                        details="No human pose detected in frame"
-                    ))
+                    anomaly_key = "anomaly"
+                    activity_stats[anomaly_key] = activity_stats.get(anomaly_key, DetectionStatistics(
+                        emotion=anomaly_key, total_fames_appearances=0, timestamps=[]))
+                    activity_stats[anomaly_key].total_fames_appearances += 1
+                    activity_stats[anomaly_key].timestamps.append(format_frame_timestamp(timestamp))
 
                 frame_number += 1
+        except Exception as e:
+            return ExecutionError(error=str(e)).model_dump_json(indent=2)
         finally:
             cap.release()
             pose_landmarker.close()
-            hands_landmarker.close()
 
         result.frames_analyzed = analyzed_counter
         result.activity_summary = activity_counter
-        return result.model_dump_json(indent=2)
+        response = DetectionToolOutput(
+            emotion_statistics=list(activity_stats.values()),
+        )
+        print(f"Activity Detection Result: {response}")
+        return response.model_dump_json(indent=2)
 
+    def format_timestamp(self, timestamp: float) -> str:
+        return str(datetime.timedelta(milliseconds=timestamp))
+
+    def get_hand_landmarker(self) -> HandLandmarker:
+        hands_model = self.download_model(MediaPipeModel.HANDS)
+        hand_options = HandLandmarkerOptions(
+            base_options=BaseOptions(model_asset_path=hands_model),
+            running_mode=vision.RunningMode.VIDEO,
+            min_hand_detection_confidence=0.8,
+            min_tracking_confidence=0.8,
+            min_hand_presence_confidence=0.8,
+            num_hands=2
+        )
+
+        hands_landmarker = HandLandmarker.create_from_options(hand_options)
+        return hands_landmarker
 
     @staticmethod
     def get_model_path(pose_model: MediaPipeModel):

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+
 from tools import FacialDetectionTool
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -11,7 +12,7 @@ def test_facial_detection():
         print(f"❌ Video file not found: {VIDEO_PATH}")
         exit(1)
 
-    result_json = tool._run(video_path=str(VIDEO_PATH), sample_rate=5)
+    result_json = tool._run(video_path=str(VIDEO_PATH), frame_rate=5)
     result = json.loads(result_json)
 
     if "error" in result:

@@ -1,64 +1,41 @@
-from enum import Enum
-from typing import List, Optional, Dict
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from models import FaceDetection, ExecutionError
-
-
-class EMOTIONS(Enum):
-    ANGRY = 0,
-    DISGUST = 1,
-    FEAR = 2,
-    HAPPY = 3,
-    SAD = 4,
-    NEUTRAL = 5,
-    SURPRISE = 6,
-    UNKNOWN = 7
-
-
-class EmotionDetectionInput(BaseModel):
-    video_path: str = Field(..., description="Path to video file")
-    face_locations: List[FaceDetection] = Field(...,
-                                                description="List of pre-detected face locations")  ##TODO review this, is it a list of face locations or face detections ???
-
-
-class EmotionScores(BaseModel):
-    angry: float = Field(..., ge=0, le=100)
-    disgust: float = Field(..., ge=0, le=100)
-    fear: float = Field(..., ge=0, le=100)
-    happy: float = Field(..., ge=0, le=100)
-    neutral: float = Field(..., ge=0, le=100)
-    surprise: float = Field(..., ge=0, le=100)
-    sad: float = Field(..., ge=0, le=100)
+from .base_models import ExecutionError
 
 
 class BaseAnalyticsDataModel(BaseModel):
-    frame: int = Field(description="Frame number")
-    timestamp: float = Field(description="Timestamp")
-    face_id: int = Field(..., description="Face ID")
+    timestamp: str = Field(description="Formatted Timestamp HH:mm:ss", examples=["00:00:00", "00:00:01"])
 
 
 class FaceEmotion(BaseAnalyticsDataModel):
     dominant_emotion: str = Field(..., description="Dominant emotion")
-    emotion_score: EmotionScores = Field(..., description="Emotion scores")
     confidence: float = Field(ge=0, le=100)
+
+
+class EmotionDetection(BaseAnalyticsDataModel):
+    emotion: str = Field(..., description="Emotion name")
 
 
 class EmotionAnomaly(BaseAnalyticsDataModel):
     type: str = Field(..., description="Type of anomaly")
-    confidence: Optional[float] = Field(None, ge=0, le=100)
     error: Optional[ExecutionError] = Field(None, description="Error message")
+
+class Summary(BaseModel):
+    type: str = Field(..., description="Type of the detection")
+    appearances: int = Field(..., description="Number of appearances")
 
 
 class EmotionDetectionResult(BaseModel):
-    total_faces_analyzed: int = Field(..., description="Total number of faces analyzed")
-    emotions_detected: List[FaceEmotion] = Field(..., description="List of detected emotions")
-    emotion_summary: Dict[str, int] = Field(..., description="Summary of emotions")
-    anomalies: List[EmotionAnomaly] = Field(..., description="List of anomalies")
+    total_faces_analyzed: int = Field(0, description="Total number of faces analyzed")
+    total_frames_analyzed: int = Field(0, description="Total number of frames analyzed")
+    emotions_detected: list[FaceEmotion] = Field(default_factory=list, description="List of detected emotions")
+    emotions_summary: dict[str, int] = Field(description="Summary of emotions")
 
 
-class EmotionData(BaseModel):
-    emotion: str = Field(..., title="Detected Emotion")
-    frequency_percentage: float = Field(..., title="Frequency of Emotion")
-    frame_count: int = Field(..., title="Number of frames with this emotion")
+class EmotionReportOutput(BaseModel):
+    top_emotion: str = Field(..., description="Top emotion")
+    total_emotions_analyzed: int = Field(0, description="Total number of emotions analyzed")
+    emotion_detections: list[EmotionDetection] = Field(default_factory=list, description="List of detected emotions")
+    final_thought: str = Field(default_factory=str, description="Final thought")
