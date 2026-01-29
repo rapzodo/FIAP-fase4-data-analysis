@@ -53,10 +53,10 @@ class ActivitiesReportModel(BaseModel):
     top_activities: list[str] = Field(..., description="Top 3 activities")
 
 class DetectionStatistics(BaseModel):
-    emotion: str = Field(..., description="Emotion detected")
+    detection_name: str = Field(..., description="Detection name")
     total_fames_appearances: int = Field(0, description="Total number of frames analyzed")
     timestamps: list[str] = Field(..., description="Timestamps analyzed")
 
 
 class DetectionToolOutput(BaseModel):
-    emotion_statistics: list[DetectionStatistics] = Field(default_factory=list, description="List of detected emotions statistics")
+    statistics: list[DetectionStatistics] = Field(default_factory=list, description="List of detection statistics")

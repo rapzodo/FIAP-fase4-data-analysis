@@ -1,4 +1,3 @@
-import datetime
 import os
 import urllib
 from enum import Enum
@@ -10,14 +9,17 @@ from mediapipe.tasks.python import vision
 from mediapipe.tasks.python.components.containers import NormalizedLandmark
 from mediapipe.tasks.python.core.base_options import BaseOptions
 from mediapipe.tasks.python.vision import HandLandmarkerOptions, HandLandmarker
-from mediapipe.tasks.python.vision.pose_landmarker import PoseLandmarkerOptions, \
-    PoseLandmarker
+from mediapipe.tasks.python.vision.pose_landmarker import (
+    PoseLandmarkerOptions,
+    PoseLandmarker)
 
 from models import ExecutionError
-from models.activity_detection_models import ActivityDetectionInput, ActivityDetectionResult, BodyLandmarks, \
+from models.activity_detection_models import (
+    ActivityDetectionInput, BodyLandmarks,
     Activity
-from models.base_models import DetectionStatistics, DetectionToolOutput
-from tools.emotion_detection_tool import format_frame_timestamp
+)
+from models.base_models import DetectionToolOutput
+from utils import capture_statistics
 
 MEDIA_PIPE_MODEL_BASE_URL = "https://storage.googleapis.com/mediapipe-models/"
 
@@ -57,7 +59,8 @@ class ActivityDetectionTool(BaseTool):
         shoulder_y, hip_y = self.calculate_average_position(body_landmarks)
         left_arm_open = body_landmarks.left_wrist.x > body_landmarks.left_elbow.x
         right_arm_open = body_landmarks.right_wrist.x < body_landmarks.right_elbow.x
-        hands_raised = body_landmarks.left_wrist.y < shoulder_y or body_landmarks.right_wrist.y < shoulder_y
+        hands_raised = body_landmarks.left_wrist.y < shoulder_y and body_landmarks.right_wrist.y < shoulder_y
+        hands_down = body_landmarks.left_wrist.y > shoulder_y and body_landmarks.right_wrist.y > shoulder_y
         if hands_raised:
             return "hands_raised"
         elif left_arm_open:
@@ -66,8 +69,10 @@ class ActivityDetectionTool(BaseTool):
             return "right_arm_open"
         elif right_arm_open and left_arm_open:
             return "both_arms_open"
-        else:
+        elif hands_down:
             return "hands_down"
+        else:
+            return "unknown pose"
 
 
     def detect_body_movement(self, body_landmarks: BodyLandmarks):
@@ -114,19 +119,10 @@ class ActivityDetectionTool(BaseTool):
         )
         pose_landmarker = PoseLandmarker.create_from_options(pose_options)
 
-        result = ActivityDetectionResult(
-            frames_analyzed=0,
-            detections=[],
-            activity_summary={},
-            pose_detections=0,
-            error=None
-        )
         cap = cv2.VideoCapture(video_path)
 
         if not cap.isOpened():
             return ExecutionError(error=f"Unable to open video source {video_path}.").model_dump_json(indent=2)
-
-        activity_counter = {}
 
         activity_stats = {}
 
@@ -156,49 +152,12 @@ class ActivityDetectionTool(BaseTool):
 
                 pose_result = pose_landmarker.detect_for_video(mp_image, int(timestamp))
 
-                frame_activities = []
-
-                #tracking detections
-                if pose_result.pose_landmarks:
-                    result.pose_detections += len(pose_result.pose_landmarks)
-
                 #analyze activities from pose
                 detected_activity = self.detect_activity_from_pose(pose_result.pose_landmarks)
 
                 if detected_activity:
-                    frame_activities.append(detected_activity)
-                    activity_counter[detected_activity.hands_activity] = activity_counter.get(detected_activity.hands_activity, 0) + 1
-                    activity_counter[detected_activity.movement_activity] = activity_counter.get(detected_activity.movement_activity, 0) + 1
-
-                    activity_stats[detected_activity.hands_activity] = activity_stats.get(detected_activity.hands_activity, DetectionStatistics(
-                        emotion=detected_activity.hands_activity,
-                        total_fames_appearances=0,
-                        timestamps=[],
-                    ))
-                    activity_stats[detected_activity.hands_activity].total_fames_appearances += 1
-                    activity_stats[detected_activity.hands_activity].timestamps.append(format_frame_timestamp(timestamp))
-
-                    activity_stats[detected_activity.movement_activity] = activity_stats.get(detected_activity.movement_activity, DetectionStatistics(
-                        emotion=detected_activity.movement_activity,
-                        total_fames_appearances=0,
-                        timestamps=[],
-                    ))
-                    activity_stats[detected_activity.movement_activity].total_fames_appearances += 1
-                    activity_stats[detected_activity.movement_activity].timestamps.append(format_frame_timestamp(timestamp))
-
-
-                # if frame_activities:
-                #     result.detections.append(ActivityDetection(
-                #         frame = frame_number,
-                #         timestamp =self.format_timestamp(timestamp),
-                #         activities=frame_activities
-                #     ))
-                else:
-                    anomaly_key = "anomaly"
-                    activity_stats[anomaly_key] = activity_stats.get(anomaly_key, DetectionStatistics(
-                        emotion=anomaly_key, total_fames_appearances=0, timestamps=[]))
-                    activity_stats[anomaly_key].total_fames_appearances += 1
-                    activity_stats[anomaly_key].timestamps.append(format_frame_timestamp(timestamp))
+                    capture_statistics(activity_stats, f"Pose activity - {detected_activity.movement_activity}", timestamp)
+                    capture_statistics(activity_stats, f"Hand activity - {detected_activity.hands_activity}", timestamp)
 
                 frame_number += 1
         except Exception as e:
@@ -207,16 +166,10 @@ class ActivityDetectionTool(BaseTool):
             cap.release()
             pose_landmarker.close()
 
-        result.frames_analyzed = analyzed_counter
-        result.activity_summary = activity_counter
         response = DetectionToolOutput(
-            emotion_statistics=list(activity_stats.values()),
+            statistics=list(activity_stats.values()),
         )
-        print(f"Activity Detection Result: {response}")
         return response.model_dump_json(indent=2)
-
-    def format_timestamp(self, timestamp: float) -> str:
-        return str(datetime.timedelta(milliseconds=timestamp))
 
     def get_hand_landmarker(self) -> HandLandmarker:
         hands_model = self.download_model(MediaPipeModel.HANDS)

@@ -4,7 +4,7 @@ detect_emotions:
   expected_output: |
     A JSON file containing the results of the tool execution
   agent: emotions_detector
-  output_file: "/analysis_results/facial_analysis_output.json"
+  output_file: "knowledge/facial_analysis_output.json"
   tools:
     - emotion_detection
 
@@ -14,14 +14,14 @@ detect_activities:
   expected_output: |
     A JSON file containing the results of the tool execution
   agent: activity_detector
-  output_file: "/analysis_results/activity_analysis_output.json"
+  output_file: "knowledge/activity_analysis_output.json"
   tools:
     - activity_detection
 
 generate_emotions_report:
   description: |
-    Aggregate the face emotions detection data and create a statistic report.
-    Use timestamps to create a timeline for face emotions detected
+    Use emotion detection statistics data and create a report.
+    Use timestamps to create a timeline for emotions detected
   expected_output: |
     A structured markdown report as the following example:
     ##Summary
@@ -65,15 +65,15 @@ generate_emotions_report:
           + There are several instances of happy emotion, which may indicate a good mood and a sense of happiness.
 
   agent: emotions_report_writer
-  output_file: "/reports/emotions-report.md"
+  output_file: "reports/emotions-report_{date_time}.md"
   markdown: true
   context:
     - detect_emotions
 
 generate_activities_report:
   description: |
-    Aggregate the activities detection data and create a statistic report.
-    Use timestamps to create a timeline for activities detected"
+    Use activities detection statistics data and create a report.
+    Use timestamps to create a timeline for activities detected
   expected_output: |
     A structured markdown report as the following example:
     ##Summary
@@ -128,7 +128,7 @@ generate_activities_report:
 
   agent: activities_report_writer
   markdown: true
-  output_file: "/reports/activity-report.md"
+  output_file: "reports/activity-report_{date_time}.md"
   context:
     - detect_activities
 
@@ -138,7 +138,7 @@ translate_report:
   expected_output: "A {language} translated markdown document of both reports"
   agent: translator
   markdown: true
-  output_file: "summary/{language}-summary-report.md"
+  output_file: "summary/{language}-summary-report_{date_time}.md"
   context:
     - generate_emotions_report
     - generate_activities_report

@@ -13,9 +13,6 @@ VIDEO_PATH = PROJECT_ROOT / os.getenv("VIDEO_PATH", "tech-challenge/danilo.mp4")
 # VIDEO_PATH = PROJECT_ROOT / os.getenv("VIDEO_PATH", "tech-challenge/Unlocking Facial Recognition_ Diverse Activities Analysis.mp4")
 FRAME_SAMPLE_RATE = os.getenv("FRAME_SAMPLE_RATE", "30")
 POSE_MODEL = MediaPipeModel.LITE.name
-OUTPUT_PATH = "output"
 
 AGENTS_CONFIG_PATH = str(PROJECT_ROOT / os.getenv("AGENTS_CONFIG_PATH", "config/agents.yml"))
 TASKS_CONFIG_PATH = str(PROJECT_ROOT / os.getenv("TASKS_CONFIG_PATH", "config/tasks.yml"))
-
-os.makedirs(OUTPUT_PATH, exist_ok=True)

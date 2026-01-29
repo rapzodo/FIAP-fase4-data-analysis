@@ -1,20 +1,34 @@
+import os
+from datetime import datetime
+from pathlib import Path
+
 from crewai import Crew, Agent, Task, Process
 from crewai.hooks import before_tool_call, ToolCallHookContext, LLMCallHookContext, after_llm_call
 from crewai.project import CrewBase, agent, task, crew, tool
+from crewai.rag.embeddings.providers.ollama import OllamaProvider
 
 from config.llm_config import llm_config
 from config.settings import AGENTS_CONFIG_PATH, TASKS_CONFIG_PATH, VIDEO_PATH, POSE_MODEL, FRAME_SAMPLE_RATE
 from guardrails.guardrails_functions import execution_error_guardrail
 from tools import EmotionDetectionTool, ActivityDetectionTool
+from utils import clean_detection_tools_input
+from utils.helper_functions import clean_llm_response
 
+project_root = Path(__file__).parent.parent
+storage_dir = project_root / "crewai_storage"
+
+os.environ["CREWAI_STORAGE_DIR"] = str(storage_dir)
 
 @CrewBase
 class VideoAnalysisSummaryCrew:
     agents_config = AGENTS_CONFIG_PATH
     tasks_config = TASKS_CONFIG_PATH
+    agents: list[Agent]
+    tasks: list[Task]
     llm = llm_config.get_llm()
     report_llm = llm_config.get_llm(model_name="gemma3n:latest")
     translate_gemma = llm_config.get_llm(model_name="translategemma:latest")
+    embedding_provider = OllamaProvider(model_name="qwen3-embedding:8b")
 
     @tool
     def emotion_detection(self):
@@ -51,13 +65,16 @@ class VideoAnalysisSummaryCrew:
             max_reasoning_attempts=3,
         )
 
+
     @agent
     def activities_report_writer(self):
+        # json_knowledge_source = JSONKnowledgeSource(file_paths=project_root / self.tasks_config['detect_activities']['output_file'])
         return Agent(
             config=self.agents_config['activities_report_writer'],
             llm=self.report_llm,
             reasoning=True,
             max_reasoning_attempts=3,
+            # knowledge_sources=[json_knowledge_source]
         )
 
     @agent
@@ -98,14 +115,18 @@ class VideoAnalysisSummaryCrew:
 
     @task
     def generate_emotions_report(self):
+        task_config = self.tasks_config['generate_emotions_report'].copy()
+        task_config['output_file'] = task_config['output_file'].format(date_time=datetime.now())
         return Task(
-            config=self.tasks_config['generate_emotions_report'],
+            config=task_config,
         )
 
     @task
     def generate_activities_report(self):
+        task_config = self.tasks_config['generate_activities_report'].copy()
+        task_config['output_file'] = task_config['output_file'].format(date_time=datetime.now())
         return Task(
-            config=self.tasks_config['generate_activities_report'],
+            config=task_config,
         )
 
     @task
@@ -113,13 +134,9 @@ class VideoAnalysisSummaryCrew:
         task_config = self.tasks_config['translate_report'].copy()
         task_config['description'] = task_config['description'].format(language=language)
         task_config['expected_output'] = task_config['expected_output'].format(language=language)
-        task_config['output_file'] = task_config['output_file'].format(language=language)
+        task_config['output_file'] = task_config['output_file'].format(language=language, date_time=datetime.now())
         return Task(
             config=task_config,
-            # guardrail=
-            # f"""The output is translated to {language}. If not, read the context again and translate it to {language}.
-            #     The result doesn't need to be a pydantic model
-            #     """,
         )
 
     @crew
@@ -130,46 +147,18 @@ class VideoAnalysisSummaryCrew:
             process=Process.sequential,
             verbose=True,
             tracing=True,
-            # memory=True
+            memory=True,
+            embedder=self.embedding_provider,
         )
 
-    @staticmethod
+
     @after_llm_call
-    def clean_reasoning_text(llm_context: LLMCallHookContext) -> str:
-        if not llm_context:
-            return str(llm_context)
-
-        print(f"cleaning the LLM response: {llm_context.response[:100]} ...")
-        reasoning_markers = [
-            "Reasoning Plan:",
-            "Strategic Plan:",
-            "Analysis Plan:",
-            "Plan:",
-            "Final Answer:"
-        ]
-        response = llm_context.response
-        for marker in reasoning_markers:
-            if marker in response:
-                parts = response.split(marker, 1)
-                if len(parts) > 1:
-                    clear_response = parts[1].strip()
-                    print(f"clear response: {clear_response[:50]} ...")
-                    return clear_response
-
-        return response
+    def clean_reasoning_text(self, llm_context: LLMCallHookContext):
+        if llm_context:
+            clean_llm_response(llm_context)
 
     @before_tool_call
     def validate_tool_input(self, context: ToolCallHookContext):
-        print(f"CALLING PRE HOOK before tool {context.tool_name}")
-        inputs = context.tool_input
-        print(f"Input {inputs}")
-        if 'properties' in inputs:
-            print("cleansing the input")
-            inputs['video_path'] = inputs['properties']['video_path']
-            inputs['frame_rate'] = inputs['properties']['frame_rate']
-            if 'media_pipe_model' in inputs['properties']:
-                inputs['media_pipe_model'] = inputs['properties']['media_pipe_model']
-            del inputs['properties']
-            print(f"input fixed : {inputs}")
-
+        if context:
+            clean_detection_tools_input(context)
 
