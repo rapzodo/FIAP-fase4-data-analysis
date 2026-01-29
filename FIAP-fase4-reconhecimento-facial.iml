@@ -4,6 +4,7 @@
     <exclude-output />
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
+      <excludePattern pattern="*.md" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.13 (FIAP-fase4-reconhecimento-facial)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

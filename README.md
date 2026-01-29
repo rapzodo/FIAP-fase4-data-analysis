@@ -1,84 +1,117 @@
 # Multi-Agent Video Analysis System
 
-A sophisticated multi-agent application built with CrewAI framework that analyzes videos for facial recognition, emotion detection, and human activity recognition. The system uses Groq API for fast LLM inference with Ollama as a fallback option.
+A sophisticated multi-agent application built with CrewAI framework that analyzes videos for emotion detection and human activity recognition. The system uses Groq/OpenAI API for fast LLM inference with Ollama as a fallback option.
 
 ## 🎯 Overview
 
 This project implements a multi-agent system that:
-- Interprets tech challenge requirements from PDF documents
-- Performs facial recognition and emotion detection in videos
-- Detects human activities and poses in video streams
-- Generates comprehensive analysis reports
-- Creates demonstration video scripts
+- Performs emotion detection in videos using DeepFace
+- Detects human activities, poses, and hand gestures using MediaPipe
+- Generates comprehensive analysis reports for emotions and activities
+- Translates reports to multiple languages (PT-BR, etc.)
+- Uses advanced LLM reasoning for report generation
+
+> **⚠️ Note**: This is a Proof of Concept (POC) project developed for educational purposes as part of FIAP Tech Challenge Phase 4. While functional, it is not designed for high-precision detection in production environments. The detection accuracy and performance can be significantly improved with fine-tuning, better model selection, and optimization of processing parameters.
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    CrewAI Orchestrator                       │
+│              (Sequential Process with Memory)                │
 └─────────────────────────────────────────────────────────────┘
                               │
-        ┌─────────────────────┼─────────────────────┐
-        │                     │                     │
-        ▼                     ▼                     ▼
-┌───────────────┐   ┌──────────────────┐   ┌──────────────────┐
-│   Tech        │   │    Facial        │   │    Activity      │
-│  Challenge    │──▶│  Recognition     │   │    Detector      │
-│ Interpretator │   │     Agent        │   │     Agent        │
-└───────────────┘   └──────────────────┘   └──────────────────┘
-                              │                     │
-                              └──────────┬──────────┘
-                                         ▼
-                              ┌──────────────────┐
-                              │   Summarizer     │
-                              │     Agent        │
-                              └──────────────────┘
-                                         │
-                                         ▼
-                              ┌──────────────────┐
-                              │  Demo Video      │
-                              │  Script Agent    │
-                              └──────────────────┘
+        ┌─────────────────────┴─────────────────────┐
+        │                                           │
+        ▼                                           ▼
+┌──────────────────┐                     ┌──────────────────┐
+│    Emotion       │                     │    Activity      │
+│    Detector      │                     │    Detector      │
+│     Agent        │                     │     Agent        │
+│  (DeepFace)      │                     │  (MediaPipe)     │
+└──────────────────┘                     └──────────────────┘
+        │                                           │
+        └──────────────────┬────────────────────────┘
+                           ▼
+                ┌──────────────────────┐
+                │   Emotions Report    │
+                │    Writer Agent      │
+                │  (Reasoning LLM)     │
+                └──────────────────────┘
+                           │
+                           ▼
+                ┌──────────────────────┐
+                │  Activities Report   │
+                │    Writer Agent      │
+                │  (Reasoning LLM)     │
+                └──────────────────────┘
+                           │
+                           ▼
+                ┌──────────────────────┐
+                │    Translator        │
+                │      Agent           │
+                │ (TranslateGemma)     │
+                └──────────────────────┘
 ```
 
 ## 🤖 Agents
 
-### 1. Tech Challenge Interpretator Agent
-- **Role**: Tech Challenge Requirements Analyst
-- **Tools**: PDF Parser Tool
-- **Function**: Extracts problem statements, solutions, and requirements from PDF documents
+### 1. Emotions Detector Agent
+- **Role**: Face Emotion Analysis Specialist
+- **Tools**: Emotion Detection Tool (DeepFace)
+- **Function**: Analyzes videos frame-by-frame to detect emotions (happy, sad, angry, surprise, neutral, fear, disgust)
+- **Output**: JSON file with emotion statistics, timestamps, and anomalies
 
-### 2. Facial Recognition Agent
-- **Role**: Facial Recognition and Emotion Detection Specialist
-- **Tools**: Facial Recognition Tool (face_recognition + DeepFace)
-- **Function**: Detects faces and identifies emotions (happy, sad, angry, surprise, neutral, fear, disgust)
+### 2. Activity Detector Agent
+- **Role**: Human Activity Analysis Specialist
+- **Tools**: Activity Detection Tool (MediaPipe Pose & Hands)
+- **Function**: Identifies human activities, poses, and hand gestures (standing, sitting, moving, hands raised, arms open, etc.)
+- **Output**: JSON file with activity statistics, timestamps, and anomalies
 
-### 3. Activity Detector Agent
-- **Role**: Human Activity Recognition Specialist
-- **Tools**: Activity Detector Tool (MediaPipe Pose & Hands)
-- **Function**: Identifies human activities (standing, sitting, moving, hand gestures)
+### 3. Emotions Report Writer Agent
+- **Role**: Emotion Detection Data Analysis Report Writer
+- **Function**: Creates detailed markdown reports from emotion detection data including statistics, timelines, and insights
+- **Features**: Uses reasoning capabilities for better analysis
+- **Output**: Comprehensive emotion analysis report in Markdown
 
-### 4. Summarizer Agent
-- **Role**: Video Analysis Report Generator
-- **Function**: Aggregates results from all agents and generates comprehensive reports
+### 4. Activities Report Writer Agent
+- **Role**: Human Activity Data Analysis Report Writer
+- **Function**: Generates detailed markdown reports from activity detection data with movement patterns and gesture analysis
+- **Features**: Uses reasoning capabilities for better analysis
+- **Output**: Comprehensive activity analysis report in Markdown
 
-### 5. Demo Video Script Agent
-- **Role**: Technical Demo Script Writer
-- **Function**: Creates demonstration scripts showcasing the application's capabilities
+### 5. Translator Agent
+- **Role**: Technical Report Translator
+- **Function**: Translates both emotion and activity reports to requested languages (PT-BR, etc.) while preserving formatting
+- **Model**: TranslateGemma LLM
+- **Output**: Translated summary report in target language
 
 ## 🛠️ Tech Stack
 
 - **Framework**: CrewAI 0.70+
-- **LLM**: Groq API (llama-3.3-70b-versatile) with Ollama fallback
-- **Computer Vision**: OpenCV, face_recognition, DeepFace, MediaPipe
+- **LLM Providers**: 
+  - Groq API (primary) with models like llama-3.3-70b-versatile
+  - OpenAI API (alternative) with models like o3-mini
+  - Ollama (fallback) with local models
+- **Reasoning Models**: Gemma3n for report generation
+- **Translation**: TranslateGemma for multilingual reports
+- **Embeddings**: Qwen3-Embedding for memory storage
+- **Computer Vision**: 
+  - DeepFace for emotion detection
+  - MediaPipe (Pose & Hands) for activity detection
+  - OpenCV for video processing
 - **Language**: Python 3.10+
-- **Tools**: PyPDF2, numpy, pydantic
+- **Deep Learning**: TensorFlow/Keras for DeepFace backend
+- **Configuration**: YAML-based agent and task configuration
 
 ## 📋 Prerequisites
 
 - Python 3.10 or higher
-- Groq API key (get it from [console.groq.com](https://console.groq.com))
-- Optional: Ollama installed locally for fallback LLM
+- **One of the following LLM providers**:
+  - Groq API key (get it from [console.groq.com](https://console.groq.com)) - Recommended
+  - OpenAI API key (get it from [platform.openai.com](https://platform.openai.com))
+  - Ollama installed locally (download from [ollama.ai](https://ollama.ai))
+- Video file for analysis
 
 ## 🚀 Installation
 
@@ -102,17 +135,35 @@ pip install -r requirements.txt
 ```
 
 4. **Configure environment variables**
-```bash
-cp .env .env
+
+Create a `.env` file in the project root with the following variables:
+
+```env
+# LLM Provider Configuration (choose one or both)
+GROQ_API_KEY=your_groq_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+USE_GROQ=true
+USE_OPENAI=false
+
+# Or use Ollama (leave API keys empty)
+OLLAMA_BASE_URL=http://localhost:11434
+
+# Video Processing Configuration
+VIDEO_PATH=tech-challenge/video.mp4
+FRAME_SAMPLE_RATE=30
+
+# Optional Configuration
+AGENTS_CONFIG_PATH=config/agents.yml
+TASKS_CONFIG_PATH=config/tasks.yml
+CREWAI_TRACING_ENABLED=false
 ```
 
-Edit `.env` and add your Groq API key:
-```env
-GROQ_API_KEY=your_groq_api_key_here
-USE_GROQ=true
-VIDEO_PATH=tech-challenge/Unlocking Facial Recognition_ Diverse Activities Analysis.mp4
-PDF_PATH=tech-challenge/Tech Challenge - IADT - Fase 4.pdf
-FRAME_SAMPLE_RATE=1
+**Note**: If you use Ollama, make sure the following models are installed:
+```bash
+ollama pull llama3.1:latest
+ollama pull gemma3n:latest
+ollama pull translategemma:latest
+ollama pull qwen3-embedding:8b
 ```
 
 ## 🎮 Usage
@@ -123,37 +174,62 @@ FRAME_SAMPLE_RATE=1
 python main.py
 ```
 
-This will:
-1. Parse the tech challenge PDF
-2. Analyze the video for facial recognition and emotions
-3. Detect activities in the video
-4. Generate a comprehensive summary report
-5. Create a demo video script
+This will execute the following workflow:
+1. **Detect Emotions**: Analyze the video for facial emotions using DeepFace
+2. **Detect Activities**: Identify human activities, poses, and hand gestures using MediaPipe
+3. **Generate Emotions Report**: Create a detailed markdown report of emotion detection results
+4. **Generate Activities Report**: Create a detailed markdown report of activity detection results
+5. **Translate Reports**: Combine and translate both reports to PT-BR (or other languages)
 
-### Output
+### Output Structure
 
-All outputs are saved in the `output/` directory:
-- `analysis_report_YYYYMMDD_HHMMSS.md` - Comprehensive analysis report
+All outputs are saved in organized directories:
+- `knowledge/` - Raw detection data in JSON format
+  - `facial_analysis_output.json` - Emotion detection statistics
+  - `activity_analysis_output.json` - Activity detection statistics
+- `reports/` - Individual analysis reports
+  - `emotions-report_*.md` - Emotion analysis report
+  - `activity-report_*.md` - Activity analysis report
+- `summary/` - Translated combined reports
+  - `pt-br-summary-report_*.md` - Portuguese translation of both reports
 
 ## 📊 Sample Output
 
 The system provides detailed analysis including:
 - **Frame Analysis**: Total frames processed from video
 - **Emotion Detection**: Distribution of emotions detected (happy, sad, angry, etc.)
+  - Emotion breakdown with percentages
+  - Emotion patterns and timeline
+  - Timestamps for each emotion occurrence
 - **Activity Detection**: Timeline of activities (standing, sitting, moving, gestures)
-- **Anomalies**: Detection failures, low confidence scores, missing faces
-- **Statistics**: Confidence scores, processing details, timestamps
+  - Activity breakdown with percentages
+  - Movement patterns analysis
+  - Hand gestures analysis (hands raised, arms open, etc.)
+- **Anomalies**: Detection failures, low confidence scores, unknown poses
+- **Statistics**: Confidence scores, processing details, success rates
+- **Key Insights**: Top emotions/activities and notable observations
 
 ## 🔧 Configuration
 
 ### LLM Configuration
 
-The system automatically uses Groq API if configured, otherwise falls back to Ollama:
+The system automatically uses Groq or OpenAI API if configured, otherwise falls back to Ollama:
 
-```python
-# config/llm_config.py
-USE_GROQ=true  # Use Groq API
-USE_GROQ=false  # Use Ollama
+```env
+# Use Groq API (recommended)
+USE_GROQ=true
+USE_OPENAI=false
+GROQ_API_KEY=your_key_here
+
+# Or use OpenAI API
+USE_GROQ=false
+USE_OPENAI=true
+OPENAI_API_KEY=your_key_here
+
+# Or use Ollama (local)
+USE_GROQ=false
+USE_OPENAI=false
+OLLAMA_BASE_URL=http://localhost:11434
 ```
 
 ### Video Processing
@@ -161,47 +237,112 @@ USE_GROQ=false  # Use Ollama
 Adjust frame sampling rate to balance speed vs. accuracy:
 
 ```env
-FRAME_SAMPLE_RATE=1  # Process every frame
-FRAME_SAMPLE_RATE=5  # Process every 5th frame (faster)
+FRAME_SAMPLE_RATE=1  # Process every frame (slowest, most accurate)
+FRAME_SAMPLE_RATE=30  # Process every 30th frame (faster, good balance)
 ```
+
+### Agent and Task Configuration
+
+Agents and tasks are configured via YAML files in the `config/` directory:
+- `config/agents.yml` - Agent definitions (roles, goals, backstories)
+- `config/tasks.yml` - Task definitions (descriptions, expected outputs)
 
 ## 📁 Project Structure
 
 ```
 FIAP-fase4-reconhecimento-facial/
-├── agents/                      # CrewAI agents
-│   ├── tech_challenge_interpretator.py
-│   ├── facial_recognition_agent.py
-│   ├── activity_detector_agent.py
-│   ├── summarizer_agent.py
-│   └── demo_video_agent.py
 ├── config/                      # Configuration files
-│   ├── llm_config.py           # LLM setup (Groq/Ollama)
+│   ├── agents.yml              # Agent definitions
+│   ├── tasks.yml               # Task definitions
+│   ├── llm_config.py           # LLM setup (Groq/OpenAI/Ollama)
 │   └── settings.py             # Application settings
+├── crew/                        # CrewAI crew implementation
+│   └── video_analysis_summary_crew.py
 ├── tools/                       # Custom CrewAI tools
-│   ├── facial_recognition_tool.py
-│   ├── activity_detector_tool.py
-│   └── pdf_parser_tool.py
-├── aula1/                       # Original facial recognition code
-├── tech-challenge/              # Input files (PDF & video)
-├── output/                      # Generated reports
+│   ├── emotion_detection_tool.py    # DeepFace emotion detection
+│   └── activity_detection_tool.py   # MediaPipe activity detection
+├── models/                      # Pydantic data models
+│   ├── base_models.py
+│   ├── emotion_detection_models.py
+│   └── activity_detection_models.py
+├── guardrails/                  # Error handling and validation
+│   └── guardrails_functions.py
+├── helper/                      # Helper functions
+│   └── helper_functions.py
+├── listeners/                   # Event listeners
+│   └── knowledge_event_listener.py
+├── knowledge/                   # Detection results (JSON)
+│   ├── facial_analysis_output.json
+│   └── activity_analysis_output.json
+├── reports/                     # Individual reports (Markdown)
+│   ├── emotions-report_*.md
+│   └── activity-report_*.md
+├── summary/                     # Translated summary reports
+│   └── pt-br-summary-report_*.md
+├── tech-challenge/              # Input video files
+├── media_pipe/                  # MediaPipe models
+│   └── pose_models/
+├── crewai_storage/             # CrewAI memory storage
+│   ├── long_term_memory_storage.db
+│   └── latest_kickoff_task_outputs.db
+├── tests/                       # Unit tests
 ├── main.py                      # Main orchestrator
 ├── requirements.txt             # Python dependencies
-├── .env.example                 # Environment template
+├── .env                         # Environment variables
 └── README.md                    # This file
 ```
 
 ## 🔍 How It Works
 
-1. **Tech Challenge Interpretation**: The PDF parser tool extracts text from the tech challenge document, and the LLM structures it into problem/solution/expectations.
+1. **Emotion Detection**: The video is processed frame-by-frame using DeepFace to detect facial emotions. Each frame is analyzed for dominant emotions (happy, sad, angry, fear, surprise, neutral, disgust) with confidence scores and timestamps.
 
-2. **Facial Recognition**: The video is processed frame-by-frame. Face_recognition library detects faces, and DeepFace analyzes emotions for each detected face.
+2. **Activity Detection**: MediaPipe Pose and Hands models analyze body positions and hand gestures to classify activities such as standing, sitting, moving, hands raised, arms open, etc.
 
-3. **Activity Detection**: MediaPipe Pose and Hands models identify body positions and hand gestures to classify activities.
+3. **Report Generation**: Two report writer agents use reasoning-enabled LLMs (Gemma3n) to analyze the detection data and create comprehensive markdown reports with:
+   - Statistical summaries
+   - Timeline of emotions/activities
+   - Pattern analysis
+   - Key insights and anomalies
 
-4. **Summarization**: All agent outputs are aggregated, analyzed, and formatted into a comprehensive Markdown report.
+4. **Translation**: The translator agent (TranslateGemma) combines both reports and translates them to the requested language (PT-BR by default) while preserving formatting and structure.
 
-5. **Demo Script**: Based on the tech challenge requirements and analysis results, a demonstration script is generated.
+5. **Memory**: The system uses CrewAI's memory features with Qwen3-Embedding to maintain context across agent interactions and improve analysis quality.
+
+## 🚧 Future Improvements
+
+This POC can be enhanced in several ways:
+
+### Detection Accuracy
+- Fine-tune emotion detection models for specific use cases
+- Implement ensemble methods for more robust predictions
+- Add face tracking to maintain identity across frames
+- Improve lighting normalization and face preprocessing
+
+### Activity Recognition
+- Train custom MediaPipe models for specific activities
+- Add more sophisticated gesture recognition patterns
+- Implement temporal smoothing for activity sequences
+- Support multi-person tracking and analysis
+
+### Performance Optimization
+- Implement GPU acceleration for faster processing
+- Add parallel processing for multiple videos
+- Optimize frame sampling strategies dynamically
+- Cache intermediate results for faster re-analysis
+
+### Features
+- Real-time video stream processing
+- Web interface for video upload and analysis
+- Interactive visualization dashboards
+- Export to additional formats (JSON, CSV, PDF)
+- Support for multiple languages in translation
+- Customizable report templates
+
+### Deployment
+- Containerization with Docker
+- API endpoint for remote processing
+- Batch processing capabilities
+- Cloud deployment options
 
 ## 🤝 Contributing
 
@@ -219,7 +360,8 @@ This project is part of the FIAP Tech Challenge - Phase 4.
 
 - CrewAI framework for multi-agent orchestration
 - Groq for fast LLM inference
-- OpenCV and face_recognition for computer vision
+- OpenAI for advanced language models
 - DeepFace for emotion detection
 - MediaPipe for pose and hand tracking
+- OpenCV for video processing
 

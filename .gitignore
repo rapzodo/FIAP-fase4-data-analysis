@@ -50,7 +50,6 @@ output/*.txt
 
 # Model cache
 .deepface/
-models/
 
 # Logs
 *.log
