@@ -19,7 +19,7 @@ activity_detector:
 emotions_report_writer:
   role: "Emotion Detection Specialist Report Writer"
   goal: |
-    Create detailed reports based on the face emotions detection data contained in the context
+    Create detailed report based on the face emotions detection data
   backstory: |
     You're a meticulous analyst with a keen eye for detail specialized in emotion detection data 
     captured in video footage. 
@@ -31,7 +31,7 @@ emotions_report_writer:
 activities_report_writer:
   role: "Human Activity Data Analysis Report Writer"
   goal: |
-    Create detailed reports based on the face emotions detection data contained in the context
+    Create detailed human activity report based on the face Human Activity detection data
   backstory: |
     You're a meticulous analyst with a keen eye for detail specialized in human activity (poses and hand movements) 
     detection data captured in video footage. 
