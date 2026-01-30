@@ -104,3 +104,11 @@ Final Answer:
         mock_context = self._create_mock_context(response)
         clean_llm_response(mock_context)
         self.assertEqual(mock_context.response, 'actual content')
+
+    def test_clean_reasoning_text_with_markdown(self):
+        response = """Final Answer:
+        ```markdown
+        ## Human Activity and Emotion Detection Report"""
+        mock_context = self._create_mock_context(response)
+        clean_llm_response(mock_context)
+        self.assertEqual('## Human Activity and Emotion Detection Report',mock_context.response)

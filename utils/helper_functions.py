@@ -92,8 +92,8 @@ def clean_llm_response(context: LLMCallHookContext):
             parts = context.response.split(marker, 1)
             if len(parts) > 1:
                 context.response = parts[1].strip()
-                context.response = context.response.replace('```markdown', '')
-                context.response = context.response.replace('```', '')
+                context.response = context.response.replace('```markdown', '').strip()
+                context.response = context.response.replace('```', '').strip()
                 print(f"clear response: {context.response[:50]} ...")
 
 
