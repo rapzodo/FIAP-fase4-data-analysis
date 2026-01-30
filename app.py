@@ -9,6 +9,8 @@ from crew import VideoAnalysisSummaryCrew
 from tools.activity_detection_tool import MediaPipeModel
 from utils import reset_crew_memory
 
+os.environ["OTEL_SDK_DISABLED"] = "true"
+
 st.set_page_config(
     page_title="Video Analysis AI",
     page_icon="🎥",
@@ -39,7 +41,7 @@ with col2:
         min_value=1,
         max_value=60,
         value=30,
-        help="Number of frames to sample per second. Higher values = more accurate but slower."
+        help="Sample every Nth frame. Higher values = faster processing but may miss details (e.g., 30 = analyze 1 frame every 30 frames)."
     )
 
     pose_model = st.selectbox(
@@ -155,7 +157,7 @@ with st.expander("ℹ️ About"):
     - HEAVY: Highest accuracy, best for detailed analysis
     
     **Frame Sample Rate:**
-    - Lower values (1-10): Faster but may miss quick movements
-    - Medium values (20-30): Good balance for most videos
-    - Higher values (40-60): Most detailed but slower processing
+    - Lower values (1-10): Analyzes more frames, slower but more detailed
+    - Medium values (20-30): Good balance for most videos  
+    - Higher values (40-60): Faster processing but may skip details (samples fewer frames)
     """)
