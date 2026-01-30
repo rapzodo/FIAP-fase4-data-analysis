@@ -21,7 +21,9 @@ detect_activities:
 generate_emotions_report:
   description: |
     Use emotion detection statistics data and create a report.
-    Use timestamps to create a timeline for emotions detected
+    Use timestamps to create a timeline for emotions detected.
+    Uses emotion detection statistics data ONLY
+    DO NOT merge the human activity detection analysis data to this report.
   expected_output: |
     A structured markdown report as the following example:
     ##Summary
@@ -72,8 +74,10 @@ generate_emotions_report:
 
 generate_activities_report:
   description: |
-    Use activities detection statistics data and create a report.
-    Use timestamps to create a timeline for activities detected
+    Uses activities detection statistics data and create a report.
+    Uses timestamps to create a timeline for activities detected.
+    Uses activities detection statistics data ONLY
+    DO NOT merge the emotion detection analysis data to this report.
   expected_output: |
     A structured markdown report as the following example:
     ##Summary

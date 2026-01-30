@@ -2,6 +2,27 @@
 
 A sophisticated multi-agent application built with CrewAI framework that analyzes videos for emotion detection and human activity recognition. The system uses Groq/OpenAI API for fast LLM inference with Ollama as a fallback option.
 
+## 🚀 Quick Start with Streamlit UI
+
+Run the interactive web interface:
+
+```bash
+streamlit run app.py
+```
+
+Or use the startup script:
+
+```bash
+./run_app.sh
+```
+
+The web interface allows you to:
+- Upload video files (mp4, avi, mov, mkv)
+- Configure frame sample rate (1-60 fps)
+- Select pose detection model (LITE, FULL, HEAVY)
+- View real-time analysis progress
+- Access generated reports directly in the browser
+
 ## 🎯 Overview
 
 This project implements a multi-agent system that:
