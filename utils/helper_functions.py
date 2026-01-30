@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+from functools import reduce
 
 from crewai import Crew
 from crewai.hooks import LLMCallHookContext, ToolCallHookContext
@@ -9,21 +10,35 @@ from crewai.utilities.paths import db_storage_path
 from models.base_models import DetectionStatistics
 
 
+def calculate_average_confidence(confidences: list[float]):
+    total = reduce(lambda a, b: a + b, confidences, 0.0)
+    avg = total / len(confidences)
+    return avg
+
+
 def format_frame_timestamp(timestamp: float) -> str:
     return str(datetime.timedelta(milliseconds=timestamp))
 
 
-def capture_statistics(stats: dict[str, DetectionStatistics], detected_activity: str, timestamp: float):
+def capture_statistics(stats: dict[str, DetectionStatistics],
+                       detected_activity: str,
+                       timestamp: float,
+                       confidences: list[float] = None):
     stats[detected_activity] = stats.get(detected_activity,
                                          DetectionStatistics(
-                                                               detection_name=detected_activity,
-                                                               total_fames_appearances=0,
-                                                               timestamps=[],
-                                                           ))
+                                             detection_name=detected_activity,
+                                             total_fames_appearances=0,
+                                             timestamps=[],
+                                             confidence_avg=calculate_average_confidence(
+                                                 confidences) if confidences else None
+                                         ))
     stats[detected_activity].total_fames_appearances += 1
     stats[detected_activity].timestamps.append(format_frame_timestamp(timestamp))
+    stats[detected_activity].confidence_avg = (
+        calculate_average_confidence(confidences)) if confidences else None
 
-def reset_crew_memory(crew: Crew, memory: str= "all") -> None:
+
+def reset_crew_memory(crew: Crew, memory: str = "all") -> None:
     crew.reset_memories(memory)
 
 
@@ -47,6 +62,7 @@ def print_crewai_storage_path():
                 print(f"📄 {item}")
     else:
         print("No CrewAI storage directory found yet.")
+
 
 def clean_llm_response(context: LLMCallHookContext):
     if not context.response:
@@ -79,6 +95,7 @@ def clean_llm_response(context: LLMCallHookContext):
                 context.response = context.response.replace('```markdown', '')
                 context.response = context.response.replace('```', '')
                 print(f"clear response: {context.response[:50]} ...")
+
 
 def clean_detection_tools_input(context: ToolCallHookContext):
     print(f"CALLING PRE HOOK before tool {context.tool_name}")

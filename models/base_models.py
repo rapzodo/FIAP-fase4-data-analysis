@@ -56,6 +56,7 @@ class DetectionStatistics(BaseModel):
     detection_name: str = Field(..., description="Detection name")
     total_fames_appearances: int = Field(0, description="Total number of frames analyzed")
     timestamps: list[str] = Field(..., description="Timestamps analyzed")
+    confidence_avg: Optional[float] = None
 
 
 class DetectionToolOutput(BaseModel):

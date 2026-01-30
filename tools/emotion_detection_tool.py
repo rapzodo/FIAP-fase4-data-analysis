@@ -42,6 +42,7 @@ class EmotionDetectionTool(BaseTool):
 
                 analysis_result = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
                 timestamp = cap.get(cv2.CAP_PROP_POS_MSEC)
+                confidences = []
                 for face in analysis_result:
                     dominant_emotion = f"dominant emotion - {face["dominant_emotion"]}"
                     face_confidence = face["face_confidence"]
@@ -52,7 +53,8 @@ class EmotionDetectionTool(BaseTool):
                         capture_statistics(emotions_stats, anomaly_low_confidence, timestamp)
                         continue
 
-                    capture_statistics(emotions_stats, dominant_emotion, timestamp)
+                    confidences.append(face_confidence)
+                    capture_statistics(emotions_stats, dominant_emotion, timestamp, confidences)
 
                 frame_number += 1
         except Exception as e:

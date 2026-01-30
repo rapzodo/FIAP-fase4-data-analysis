@@ -9,8 +9,7 @@ load_dotenv()
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
-VIDEO_PATH = PROJECT_ROOT / os.getenv("VIDEO_PATH", "tech-challenge/danilo.mp4")
-# VIDEO_PATH = PROJECT_ROOT / os.getenv("VIDEO_PATH", "tech-challenge/Unlocking Facial Recognition_ Diverse Activities Analysis.mp4")
+VIDEO_PATH = PROJECT_ROOT / os.getenv("VIDEO_PATH", "tech-challenge/Unlocking Facial Recognition_ Diverse Activities Analysis.mp4")
 FRAME_SAMPLE_RATE = os.getenv("FRAME_SAMPLE_RATE", "30")
 POSE_MODEL = MediaPipeModel.LITE.name
 

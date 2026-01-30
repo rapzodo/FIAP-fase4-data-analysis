@@ -36,7 +36,7 @@ class ActivityDetectionTool(BaseTool):
     description: str = "Detects human activities, poses, and gestures in videos using MediaPipe. Requires video_path (string), media_pipe_model (string: 'LITE', 'FULL', or 'HEAVY'), and frame_rate (integer). Returns JSON with frames_analyzed, detections array, activity_summary, pose_detections, hands_detections, and anomalies."
     args_schema: type[ActivityDetectionInput] = ActivityDetectionInput
 
-    def detect_activity_from_pose(self, pose_landmarks: list[list[NormalizedLandmark]]) -> Activity|None:
+    def detect_activity_from_pose(self, pose_landmarks: list[list[NormalizedLandmark]]) -> Activity | None:
         if not pose_landmarks or len(pose_landmarks) == 0:
             return None
 
@@ -55,34 +55,22 @@ class ActivityDetectionTool(BaseTool):
             return "sitting"
         return self.detect_body_movement(body_landmarks)
 
-    def detect_hand_position(self, body_landmarks: BodyLandmarks):
-        shoulder_y, hip_y = self.calculate_average_position(body_landmarks)
-        left_arm_open = body_landmarks.left_wrist.x > body_landmarks.left_elbow.x
-        right_arm_open = body_landmarks.right_wrist.x < body_landmarks.right_elbow.x
-        hands_raised = body_landmarks.left_wrist.y < shoulder_y and body_landmarks.right_wrist.y < shoulder_y
-        hands_down = body_landmarks.left_wrist.y > shoulder_y and body_landmarks.right_wrist.y > shoulder_y
-        if hands_raised:
-            return "hands_raised"
-        elif left_arm_open:
-            return "left_arm_open"
-        elif right_arm_open:
-            return "right_arm_open"
-        elif right_arm_open and left_arm_open:
-            return "both_arms_open"
-        elif hands_down:
-            return "hands_down"
-        else:
-            return "unknown pose"
+    @staticmethod
+    def detect_hand_position(body_landmarks: BodyLandmarks):
+        return body_landmarks.detect_hand_activity()
 
-
-    def detect_body_movement(self, body_landmarks: BodyLandmarks):
-        shoulder_y, hip_y = self.calculate_average_position(body_landmarks)
-        # if body_landmarks.left_knee.y < hip_y or body_landmarks.right_knee.y < hip_y:
-
-        if body_landmarks.left_knee.y > hip_y > body_landmarks.right_knee.y and body_landmarks.right_wrist.y > shoulder_y > body_landmarks.left_wrist.y:
-            return "moving"
-        else:
+    @staticmethod
+    def detect_body_movement(body_landmarks: BodyLandmarks):
+        if body_landmarks.is_jumping_pose():
+            return "jumping"
+        elif body_landmarks.is_crouching_pose():
+            return "crouching"
+        elif body_landmarks.is_walking_pose():
+            return "walking"
+        elif body_landmarks.is_standing_still():
             return "standing"
+        else:
+            return "transitioning"
 
     @staticmethod
     def calculate_average_position(body_landmarks: BodyLandmarks):
@@ -152,11 +140,12 @@ class ActivityDetectionTool(BaseTool):
 
                 pose_result = pose_landmarker.detect_for_video(mp_image, int(timestamp))
 
-                #analyze activities from pose
+                # analyze activities from pose
                 detected_activity = self.detect_activity_from_pose(pose_result.pose_landmarks)
 
                 if detected_activity:
-                    capture_statistics(activity_stats, f"Pose activity - {detected_activity.movement_activity}", timestamp)
+                    capture_statistics(activity_stats, f"Pose activity - {detected_activity.movement_activity}",
+                                       timestamp)
                     capture_statistics(activity_stats, f"Hand activity - {detected_activity.hands_activity}", timestamp)
 
                 frame_number += 1

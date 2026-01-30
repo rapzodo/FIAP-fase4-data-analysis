@@ -9,8 +9,6 @@ from crew import VideoAnalysisSummaryCrew
 from tools.activity_detection_tool import MediaPipeModel
 from utils import reset_crew_memory
 
-os.environ["OTEL_SDK_DISABLED"] = "true"
-
 st.set_page_config(
     page_title="Video Analysis AI",
     page_icon="🎥",
@@ -51,11 +49,24 @@ with col2:
         help="LITE: Fast but less accurate\nFULL: Balanced\nHEAVY: Most accurate but slower"
     )
 
+    use_memory = st.checkbox(
+        "Use Crew Memory",
+        value=False,
+        help="Enables Crew to use analysis memory"
+    )
+
     reset_memory = st.checkbox(
         "Reset Crew Memory",
         value=False,
         help="Clear previous analysis memory before starting"
     )
+
+    if reset_memory:
+        memory = st.selectbox(
+            label="Memory",
+            options=['short','long','entity','knowledge','all'],
+            index = 0
+        )
 
 st.divider()
 
@@ -75,7 +86,7 @@ if st.button("🚀 Start Analysis", type="primary", use_container_width=True):
             with st.status("Analyzing video...", expanded=True) as status:
                 st.write("🏃 Starting Activity Detector Agent")
                 st.write(f"📹 Video: {uploaded_file.name}")
-                st.write(f"⚙️ Frame Rate: {frame_rate}")
+                st.write(f"⚙️ Frame Sample Rate: {frame_rate}")
                 st.write(f"🤖 Model: {pose_model}")
                 st.write("⏱️ This may take 2-15 minutes")
 
@@ -88,7 +99,10 @@ if st.button("🚀 Start Analysis", type="primary", use_container_width=True):
 
                 if reset_memory:
                     st.write("🧹 Resetting crew memory...")
-                    reset_crew_memory(crew)
+                    reset_crew_memory(crew, memory)
+
+                if use_memory:
+                    crew.memory = use_memory
 
                 result = crew.kickoff()
 

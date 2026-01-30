@@ -147,7 +147,6 @@ class VideoAnalysisSummaryCrew:
             process=Process.sequential,
             verbose=True,
             tracing=True,
-            memory=True,
             embedder=self.embedding_provider,
         )
 
