@@ -6,6 +6,7 @@ import streamlit as st
 
 from config.settings import PROJECT_ROOT
 from crew import VideoAnalysisSummaryCrew
+from models.base_models import BaseInputModel
 from tools.activity_detection_tool import MediaPipeModel
 from utils import reset_crew_memory
 
@@ -64,36 +65,54 @@ with col2:
     if reset_memory:
         memory = st.selectbox(
             label="Memory",
-            options=['short','long','entity','knowledge','all'],
-            index = 0
+            options=['short', 'long', 'entity', 'knowledge', 'all'],
+            index=0
         )
 
 st.divider()
+
+if 'video_cache' not in st.session_state:
+    st.session_state.video_cache = {}
+if 'last_file_id' not in st.session_state:
+    st.session_state.last_file_id = None
+
+if uploaded_file is not None:
+    current_file_id = uploaded_file.file_id
+    if current_file_id != st.session_state.last_file_id:
+        for old_path in st.session_state.video_cache.values():
+            if os.path.exists(old_path):
+                try:
+                    os.unlink(old_path)
+                except:
+                    pass
+        st.session_state.video_cache.clear()
+        st.session_state.last_file_id = current_file_id
 
 if st.button("🚀 Start Analysis", type="primary", use_container_width=True):
     if uploaded_file is None:
         st.error("Please upload a video file first!")
     else:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(uploaded_file.name).suffix) as tmp_file:
-            tmp_file.write(uploaded_file.getvalue())
-            video_path = tmp_file.name
+        file_id = uploaded_file.file_id
+
+        if file_id in st.session_state.video_cache:
+            video_path = st.session_state.video_cache[file_id]
+        else:
+            tmp_dir = tempfile.mkdtemp()
+            video_filename = f"video_{file_id}{Path(uploaded_file.name).suffix}"
+            video_path = os.path.join(tmp_dir, video_filename)
+
+            with open(video_path, 'wb') as f:
+                f.write(uploaded_file.getvalue())
+
+            st.session_state.video_cache[file_id] = video_path
 
         try:
-            os.environ["VIDEO_PATH"] = video_path
-            os.environ["FRAME_SAMPLE_RATE"] = str(frame_rate)
-            os.environ["POSE_MODEL"] = pose_model
-
             with st.status("Analyzing video...", expanded=True) as status:
                 st.write("🏃 Starting Activity Detector Agent")
                 st.write(f"📹 Video: {uploaded_file.name}")
                 st.write(f"⚙️ Frame Sample Rate: {frame_rate}")
                 st.write(f"🤖 Model: {pose_model}")
                 st.write("⏱️ This may take 2-15 minutes")
-
-                import config.settings as settings
-                settings.VIDEO_PATH = Path(video_path)
-                settings.FRAME_SAMPLE_RATE = str(frame_rate)
-                settings.POSE_MODEL = pose_model
 
                 crew = VideoAnalysisSummaryCrew().crew()
 
@@ -104,15 +123,20 @@ if st.button("🚀 Start Analysis", type="primary", use_container_width=True):
                 if use_memory:
                     crew.memory = use_memory
 
-                result = crew.kickoff()
+                inputs = BaseInputModel(
+                    video_path=str(Path(video_path)),
+                    frame_rate=frame_rate,
+                    pose_model=pose_model
+                )
+                result = crew.kickoff(inputs=inputs.model_dump())
 
                 status.update(label="✅ Analysis Complete!", state="complete")
 
             st.success("Analysis completed successfully!")
 
-            st.subheader("📊 Results")
+            st.subheader(f"📊 Results - Tokens used : {result.token_usage}")
 
-            tab1, tab2, tab3 = st.tabs(["Summary", "Reports", "Raw Output"])
+            tab1, tab2, tab3, tab4 = st.tabs(["Summary", "Reports", "Execution Trace", "Raw Output"])
 
             with tab1:
                 st.markdown("### Analysis Summary")
@@ -141,19 +165,48 @@ if st.button("🚀 Start Analysis", type="primary", use_container_width=True):
                     st.info("No reports generated yet")
 
             with tab3:
+                st.markdown("### Execution Trace")
+
+                if hasattr(result, 'trace') and result.trace:
+                    for idx, trace_entry in enumerate(result.trace):
+                        with st.expander(f"🔍 Step {idx + 1}: {trace_entry.get('agent', 'Unknown Agent')}",
+                                         expanded=(idx < 3)):
+                            if 'task' in trace_entry:
+                                st.markdown(f"**Task:** {trace_entry['task']}")
+                            if 'action' in trace_entry:
+                                st.markdown(f"**Action:** {trace_entry['action']}")
+                            if 'tool' in trace_entry:
+                                st.markdown(f"**Tool Used:** `{trace_entry['tool']}`")
+                            if 'tool_input' in trace_entry:
+                                st.markdown("**Tool Input:**")
+                                st.code(str(trace_entry['tool_input']), language="json")
+                            if 'output' in trace_entry:
+                                st.markdown("**Output:**")
+                                st.text(str(trace_entry['output'])[:1000] + (
+                                    "..." if len(str(trace_entry['output'])) > 1000 else ""))
+                            if 'thought' in trace_entry:
+                                st.markdown("**Thought Process:**")
+                                st.info(trace_entry['thought'])
+                else:
+                    st.info("No trace information available. Make sure tracing is enabled in crew configuration.")
+
+                if hasattr(result, 'tasks_output') and result.tasks_output:
+                    st.markdown("### Task Outputs")
+                    for idx, task_output in enumerate(result.tasks_output):
+                        with st.expander(
+                                f"📋 Task {idx + 1}: {task_output.name if hasattr(task_output, 'name') else 'Task'}"):
+                            st.markdown(
+                                f"**Description:** {task_output.description if hasattr(task_output, 'description') else 'N/A'}")
+                            st.markdown("**Output:**")
+                            st.write(task_output.raw if hasattr(task_output, 'raw') else str(task_output))
+
+            with tab4:
                 st.markdown("### Raw Output")
-                st.json(str(result))
+                st.json(result.json_dict)
 
         except Exception as e:
             st.error(f"❌ Error during analysis: {str(e)}")
             st.exception(e)
-
-        finally:
-            if os.path.exists(video_path):
-                try:
-                    os.unlink(video_path)
-                except:
-                    pass
 
 st.divider()
 

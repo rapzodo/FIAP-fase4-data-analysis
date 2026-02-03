@@ -16,7 +16,7 @@ class EmotionDetectionTool(BaseTool):
     description: str = "Analyzes emotions in faces detected in video. Requires video_path (string) parameter. Returns JSON with total_faces_analyzed, emotions_detected array, emotion_summary, and anomalies."
     args_schema: type[BaseModel] = BaseInputModel
 
-    def _run(self, video_path: str, frame_rate:int) -> str:
+    def _run(self, video_path: str, frame_rate:int, pose_model: str) -> str:
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             return ExecutionError(error="Unable to open video file").model_dump_json(indent=2)

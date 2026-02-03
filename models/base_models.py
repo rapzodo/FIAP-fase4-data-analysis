@@ -15,6 +15,7 @@ class BaseAnalysisOutputModel(BaseModel):
 class BaseInputModel(BaseModel):
     video_path: str = Field(description="Path to the video file")
     frame_rate: int = Field(..., description="Frame rate")
+    pose_model: Optional[str] = Field(None,description="MediaPipe model for pose detection. Valid values: 'LITE', 'FULL', 'HEAVY'")
 
 class ReportOutputModel(BaseModel):
     summary: str = Field(..., description="Summary of the analysis")

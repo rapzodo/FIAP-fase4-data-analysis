@@ -1,7 +1,6 @@
 from .activity_detection_models import (
     ActivityAnomaly,
     ActivityDetection,
-    ActivityDetectionInput,
     ActivityDetectionResult,
     BodyLandmarks,
 )
@@ -26,7 +25,6 @@ __all__ = [
     "FaceEmotion",
     "ActivityAnomaly",
     "ActivityDetection",
-    "ActivityDetectionInput",
     "ActivityDetectionResult",
     "BodyLandmarks",
     "EmotionReportOutput",

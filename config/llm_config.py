@@ -20,6 +20,8 @@ class LLMConfig:
         self.use_groq = os.getenv("USE_GROQ", "true").lower() == "true"
         self.use_openai = os.getenv("USE_OPENAI", "true").lower() == "true"
         self.ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.temperature = 0.0
+        self.time_out = 60000
 
         if not self.groq_api_key or self.groq_api_key == "your_groq_api_key_here":
             print("⚠️  GROQ_API_KEY OR OPENAI_API_KEY are not configured. Using Ollama instead.")
@@ -34,7 +36,9 @@ class LLMConfig:
                 return LLM(
                     model=f"{"openai" if self.use_openai else "groq"}/{model}",
                     api_key= self.openai_key if self.use_openai else self.groq_api_key,
-                    temperature=0.1
+                    temperature=self.temperature,
+                    timeout=self.time_out
+
                 )
             except Exception as e:
                 print(f"❌ Failed to initialize Groq: {e}")
@@ -51,9 +55,9 @@ class LLMConfig:
         print(f"   And model is pulled: ollama pull {model}")
         return LLM(
             model=f"ollama/{model}",
-            temperature=0.1,
+            temperature=self.temperature,
             base_url=self.ollama_base_url,
-            timeout=60000
+            timeout=self.time_out
         )
 
 llm_config = LLMConfig()

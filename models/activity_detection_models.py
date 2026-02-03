@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from .base_models import ExecutionError, BaseInputModel
+from .base_models import ExecutionError
 
 
 class BodyLandmarks:
@@ -75,17 +75,6 @@ class BodyLandmarks:
             avg_knee_x = (self.left_knee.x + self.right_knee.x) / 2
             knee_separation = abs(self.left_knee.x - self.right_knee.x)
             return abs(avg_knee_x - avg_hip_x) < 0.05 and knee_separation < 0.08
-
-    def is_jumping_pose(self, threshold=0.15):
-        avg_hip_y = (self.left_hip.y + self.right_hip.y) / 2
-        avg_ankle_y = (self.left_ankle.y + self.right_ankle.y) / 2
-        avg_knee_y = (self.left_knee.y + self.right_knee.y) / 2
-
-        feet_elevated = avg_ankle_y < (avg_hip_y - threshold)
-        knees_bent = avg_knee_y < avg_hip_y
-        both_feet_together = abs(self.left_ankle.y - self.right_ankle.y) < 0.1
-
-        return feet_elevated and knees_bent and both_feet_together
 
     def is_crouching_pose(self, threshold=0.2):
         avg_hip_y = (self.left_hip.y + self.right_hip.y) / 2
@@ -200,33 +189,30 @@ class BodyLandmarks:
         return "hands_neutral"
 
 
-class ActivityDetectionInput(BaseInputModel):
-    media_pipe_model: str = Field(description="MediaPipe model for pose detection. Valid values: 'LITE', 'FULL', 'HEAVY'")
-
-
 class Activity(BaseModel):
     hands_activity: str = Field(description="hands movement activity")
     movement_activity: str = Field(description="movement activity")
 
+
 class ActivityDetection(BaseModel):
-    frame :int = Field(description="Frame number")
-    timestamp : str = Field(description="Timestamp")
-    activities : list[Activity] = Field(description="Activities")
+    frame: int = Field(description="Frame number")
+    timestamp: str = Field(description="Timestamp")
+    activities: list[Activity] = Field(description="Activities")
 
 
 class ActivityAnomaly(BaseModel):
-    frame : int = Field(description="Frame number")
-    timestamp : float = Field(description="Timestamp")
+    frame: int = Field(description="Frame number")
+    timestamp: float = Field(description="Timestamp")
     type: str = Field(description="Anomaly type")
-    details : Optional[str] = Field(None, description="Anomaly details")
+    details: Optional[str] = Field(None, description="Anomaly details")
 
 
 class ActivityDetectionResult(BaseModel):
     frames_analyzed: int = Field(description="Frames analyzed")
     detections: list[ActivityDetection] = Field(description="Activities detected")
     activity_summary: dict[str, int] = Field(description="Activity summary")
-    pose_detections : int = Field(description="Total Poses detected")
-    error : Optional[ExecutionError] = Field(None, description="Error message")
+    pose_detections: int = Field(description="Total Poses detected")
+    error: Optional[ExecutionError] = Field(None, description="Error message")
 
     class Config:
         json_schema_extra = {

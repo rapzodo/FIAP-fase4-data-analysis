@@ -8,7 +8,7 @@ from crewai.project import CrewBase, agent, task, crew, tool
 from crewai.rag.embeddings.providers.ollama import OllamaProvider
 
 from config.llm_config import llm_config
-from config.settings import AGENTS_CONFIG_PATH, TASKS_CONFIG_PATH, VIDEO_PATH, POSE_MODEL, FRAME_SAMPLE_RATE
+from config.settings import AGENTS_CONFIG_PATH, TASKS_CONFIG_PATH
 from guardrails.guardrails_functions import execution_error_guardrail
 from tools import EmotionDetectionTool, ActivityDetectionTool
 from utils import clean_detection_tools_input
@@ -89,10 +89,6 @@ class VideoAnalysisSummaryCrew:
     @task
     def detect_emotions(self) -> Task:
         task_config = self.tasks_config['detect_emotions']
-        task_config['description'] = (task_config.copy()['description'].format(
-            video_path=VIDEO_PATH,
-            frame_rate=FRAME_SAMPLE_RATE,
-        ))
         return Task(
             config=task_config,
             async_execution=True,
@@ -102,11 +98,6 @@ class VideoAnalysisSummaryCrew:
     @task
     def detect_activities(self) -> Task:
         task_config = self.tasks_config['detect_activities']
-        task_config['description'] = (task_config.copy()['description'].format(
-            video_path=VIDEO_PATH,
-            pose_model=POSE_MODEL,
-            frame_rate=FRAME_SAMPLE_RATE
-        ))
         return Task(
             config=task_config,
             async_execution=True,
@@ -155,6 +146,7 @@ class VideoAnalysisSummaryCrew:
     def clean_reasoning_text(self, llm_context: LLMCallHookContext):
         if llm_context:
             clean_llm_response(llm_context)
+            print(f"Clean LLM response: {llm_context.response[:50]}")
 
     @before_tool_call
     def validate_tool_input(self, context: ToolCallHookContext):

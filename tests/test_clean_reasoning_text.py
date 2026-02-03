@@ -3,11 +3,15 @@ from unittest.mock import Mock
 
 from crewai.hooks import LLMCallHookContext
 
+from crew import VideoAnalysisSummaryCrew
 from utils import clean_llm_response
 
 
 class TestCleanReasoningText(TestCase):
-    
+
+    def setUp(self):
+        self.crew = VideoAnalysisSummaryCrew()
+
     def _create_mock_context(self, response_text):
         mock_context = Mock(spec=LLMCallHookContext)
         mock_context.response = response_text
@@ -111,4 +115,13 @@ Final Answer:
         ## Human Activity and Emotion Detection Report"""
         mock_context = self._create_mock_context(response)
         clean_llm_response(mock_context)
+        self.assertEqual('## Human Activity and Emotion Detection Report',mock_context.response)
+
+
+    def test_llm_response_clean(self):
+        response = """Final Answer:
+        ```markdown
+        ## Human Activity and Emotion Detection Report"""
+        mock_context = self._create_mock_context(response)
+        self.crew.clean_reasoning_text(mock_context)
         self.assertEqual('## Human Activity and Emotion Detection Report',mock_context.response)

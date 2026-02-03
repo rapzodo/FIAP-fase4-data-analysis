@@ -15,10 +15,10 @@ from mediapipe.tasks.python.vision.pose_landmarker import (
 
 from models import ExecutionError
 from models.activity_detection_models import (
-    ActivityDetectionInput, BodyLandmarks,
+    BodyLandmarks,
     Activity
 )
-from models.base_models import DetectionToolOutput
+from models.base_models import DetectionToolOutput, BaseInputModel
 from utils import capture_statistics
 
 MEDIA_PIPE_MODEL_BASE_URL = "https://storage.googleapis.com/mediapipe-models/"
@@ -34,7 +34,7 @@ class MediaPipeModel(Enum):
 class ActivityDetectionTool(BaseTool):
     name: str = "activity_detection"
     description: str = "Detects human activities, poses, and gestures in videos using MediaPipe. Requires video_path (string), media_pipe_model (string: 'LITE', 'FULL', or 'HEAVY'), and frame_rate (integer). Returns JSON with frames_analyzed, detections array, activity_summary, pose_detections, hands_detections, and anomalies."
-    args_schema: type[ActivityDetectionInput] = ActivityDetectionInput
+    args_schema: type[BaseInputModel] = BaseInputModel
 
     def detect_activity_from_pose(self, pose_landmarks: list[list[NormalizedLandmark]]) -> Activity | None:
         if not pose_landmarks or len(pose_landmarks) == 0:
@@ -61,9 +61,7 @@ class ActivityDetectionTool(BaseTool):
 
     @staticmethod
     def detect_body_movement(body_landmarks: BodyLandmarks):
-        if body_landmarks.is_jumping_pose():
-            return "jumping"
-        elif body_landmarks.is_crouching_pose():
+        if body_landmarks.is_crouching_pose():
             return "crouching"
         elif body_landmarks.is_walking_pose():
             return "walking"
@@ -95,8 +93,8 @@ class ActivityDetectionTool(BaseTool):
 
         return model_path
 
-    def _run(self, video_path, media_pipe_model: str, frame_rate: int = 5) -> str:
-        pose_model = self.download_model(MediaPipeModel[media_pipe_model])
+    def _run(self, video_path, pose_model: str, frame_rate: int = 5) -> str:
+        pose_model = self.download_model(MediaPipeModel[pose_model])
 
         pose_options = PoseLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=pose_model),

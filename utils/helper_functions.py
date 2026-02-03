@@ -38,7 +38,7 @@ def capture_statistics(stats: dict[str, DetectionStatistics],
         calculate_average_confidence(confidences)) if confidences else None
 
 
-def reset_crew_memory(crew: Crew, memory: str = "all") -> None:
+def reset_crew_memory(crew: Crew, memory: str = "all"):
     crew.reset_memories(memory)
 
 
@@ -77,24 +77,22 @@ def clean_llm_response(context: LLMCallHookContext):
         json.loads(response_stripped)
         return
     except (json.JSONDecodeError, ValueError):
-        pass
-
-    print(f"cleaning the LLM response: {context.response[:100]} ...")
-    reasoning_markers = [
-        "Reasoning Plan:",
-        "Strategic Plan:",
-        "Analysis Plan:",
-        "Plan:",
-        "Final Answer:",
-    ]
-    for marker in reasoning_markers:
-        if marker in context.response:
-            parts = context.response.split(marker, 1)
-            if len(parts) > 1:
-                context.response = parts[1].strip()
-                context.response = context.response.replace('```markdown', '').strip()
-                context.response = context.response.replace('```', '').strip()
-                print(f"clear response: {context.response[:50]} ...")
+        print(f"cleaning the LLM response: {context.response[:100]} ...")
+        reasoning_markers = [
+            "Reasoning Plan:",
+            "Strategic Plan:",
+            "Analysis Plan:",
+            "Plan:",
+            "Final Answer:",
+        ]
+        for marker in reasoning_markers:
+            if marker in context.response:
+                parts = context.response.split(marker, 1)
+                if len(parts) > 1:
+                    context.response = parts[1].strip()
+                    context.response = context.response.replace('```markdown', '').strip()
+                    context.response = context.response.replace('```', '').strip()
+                    print(f"clear response: {context.response[:50]} ...")
 
 
 def clean_detection_tools_input(context: ToolCallHookContext):

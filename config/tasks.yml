@@ -10,7 +10,7 @@ detect_emotions:
 
 detect_activities:
   description: |
-    Execute the activity_detection tool with video_path='{video_path}' frame_rate='{frame_rate}' and media_pipe_model='{pose_model}' then return results.
+    Execute the activity_detection tool with video_path='{video_path}' frame_rate='{frame_rate}' and pose_model='{pose_model}' then return results.
   expected_output: |
     A JSON file containing the results of the tool execution
   agent: activity_detector
