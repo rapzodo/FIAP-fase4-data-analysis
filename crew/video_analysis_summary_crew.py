@@ -7,7 +7,6 @@ from crewai.hooks import before_tool_call, ToolCallHookContext, LLMCallHookConte
 from crewai.project import CrewBase, agent, task, crew, tool
 from crewai.rag.embeddings.providers.ollama import OllamaProvider
 
-from config.llm_config import llm_config
 from config.settings import AGENTS_CONFIG_PATH, TASKS_CONFIG_PATH
 from guardrails.guardrails_functions import execution_error_guardrail
 from tools import EmotionDetectionTool, ActivityDetectionTool
@@ -25,10 +24,15 @@ class VideoAnalysisSummaryCrew:
     tasks_config = TASKS_CONFIG_PATH
     agents: list[Agent]
     tasks: list[Task]
-    llm = llm_config.get_llm()
-    report_llm = llm_config.get_llm(model_name="gemma3n:latest")
-    translate_gemma = llm_config.get_llm(model_name="translategemma:latest")
-    embedding_provider = OllamaProvider(model_name="qwen3-embedding:8b")
+
+    def __init__(self,llm_config=None):
+        self.llm_config = llm_config
+        self.llm = llm_config.get_llm()
+        self.report_llm = llm_config.get_llm(model_name="gemma3n:latest")
+        self.translate_gemma = llm_config.get_llm(model_name="translategemma:latest")
+        self.embedding_provider = OllamaProvider(model_name="qwen3-embedding:8b")
+
+
 
     @tool
     def emotion_detection(self):

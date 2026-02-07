@@ -4,6 +4,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from config.llm_config import LLMConfig
 from config.settings import PROJECT_ROOT
 from crew import VideoAnalysisSummaryCrew
 from models.base_models import BaseInputModel
@@ -15,6 +16,9 @@ st.set_page_config(
     page_icon="🎥",
     layout="wide"
 )
+
+os.environ["USE_OPENAI"] = 'false'
+os.environ["USE_GROQ"] = 'false'
 
 st.title("🎥 Video Analysis AI")
 st.markdown("Upload a video to analyze emotions and activities using AI agents")
@@ -69,6 +73,41 @@ with col2:
             index=0
         )
 
+    use_inference = st.checkbox(
+        label="Use Inference API",
+        help="If this is not checked Ollama container needs to be installed and running in the machine"
+    )
+
+    if use_inference:
+        inference_api = st.selectbox(
+            "Select Inference API",
+            options=['OPENAI', 'GROQ'],
+            index=0,
+        )
+
+        if inference_api == 'OPENAI':
+            openai_api_key = st.text_input(
+                label="Enter OpenAI api key",
+                type="password"
+            )
+            if openai_api_key:
+                os.environ["USE_OPENAI"] = 'true'
+                os.environ["OPENAI_API_KEY"] = openai_api_key
+        else:
+            groq_api_key = st.text_input(
+                label="Enter Groq api key",
+                type="password"
+            )
+            if groq_api_key:
+                os.environ['USE_GROQ'] = 'true'
+                os.environ["GROQ_API_KEY"] = groq_api_key
+
+        model_name = st.text_input(
+            label="LLM model name"
+        )
+        if not model_name:
+            st.error("Please provide the LLM model name!")
+
 st.divider()
 
 if 'video_cache' not in st.session_state:
@@ -114,7 +153,7 @@ if st.button("🚀 Start Analysis", type="primary", use_container_width=True):
                 st.write(f"🤖 Model: {pose_model}")
                 st.write("⏱️ This may take 2-15 minutes")
 
-                crew = VideoAnalysisSummaryCrew().crew()
+                crew = VideoAnalysisSummaryCrew(LLMConfig()).crew()
 
                 if reset_memory:
                     st.write("🧹 Resetting crew memory...")

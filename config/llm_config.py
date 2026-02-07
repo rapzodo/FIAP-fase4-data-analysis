@@ -60,5 +60,6 @@ class LLMConfig:
             timeout=self.time_out
         )
 
-llm_config = LLMConfig()
+def get_llm_config() -> LLMConfig:
+    return LLMConfig()
 
